@@ -1,0 +1,59 @@
+# Task Checklist — Amadeus Micro Agent
+
+Working checklist mirroring [plan.md](plan.md). Check items off as they land; record
+actual time vs. box at each checkpoint. Deferral list state lives at the bottom.
+
+## Phase 3 — Walking skeleton (120m)
+- [ ] T3.1 Backend scaffold: FastAPI, config, JSON logging, /api/health (30m)
+- [ ] T3.2 AgentService + registry + strategy_convo stub + error envelope (45m)
+- [ ] T3.3 SSE chat endpoint POST /api/chat (20m)
+- [ ] T3.4 React shell: ChatWindow, sse.ts, proxy (25m)
+- [ ] CHECKPOINT C3: demo, commit, pointer update — actual: ___m
+
+## Phase 4 — Persistence (90m)
+- [ ] T4.1 docker-compose + DB wiring + truthful health (15m)
+- [ ] T4.2 SQLAlchemy models + initial Alembic migration (40m)
+- [ ] T4.3 Repository protocols + pg impls + fakes + chat persistence (35m)
+- [ ] CHECKPOINT C4: commit, pointer update — actual: ___m
+
+## Phase 5 — Document ingestion (150m)
+- [ ] T5.1 Upload endpoint: validate, dedupe, BlobStore, document row (40m)
+- [ ] T5.2 pdfplumber extraction + scan detection → needs_ocr (30m)
+- [ ] T5.3 LLM decomposition → typed credentials, atomic, status transitions (50m)
+- [ ] T5.4 Upload UI + status display (30m)
+- [ ] CHECKPOINT C5: commit, pointer update — actual: ___m
+
+## Phase 6 — Capabilities + approval gate (90m)
+- [ ] T6.1 ApprovalGate: can_use_tool, intent string, SSE event, audit rows (40m)
+- [ ] T6.2 resume_store real: pipeline + repo behind one batched approval (30m)
+- [ ] T6.3 Remaining 3 stubs + prompts.py (20m)
+- [ ] CHECKPOINT C6: definition-of-done demo, commit, pointer update — actual: ___m
+
+## Phase 7 — Evals + tests (75m)
+- [ ] T7.1 Unit + integration suites per SPEC §9 (35m)
+- [ ] T7.2 Routing eval harness, golden set, ≥80% (40m)
+- [ ] CHECKPOINT C7: commit, pointer update — actual: ___m
+
+## Phase 8 — Review (60m)
+- [ ] /code-review since ec59c70; fix or waive findings
+- [ ] Manual reliability checks: API outage, subprocess kill — recorded
+
+## Phase 9 — UI pass (60m)
+- [ ] /impeccable init → PRODUCT.md
+- [ ] /impeccable polish on chat + upload + approval surfaces
+
+## Phase 10 — Ship docs (90m)
+- [ ] README verified-by-clean-run
+- [ ] ADR-0001 stack, ADR-0002 approval design
+- [ ] Fine-tuning proposal (expected: "not yet" + triggers)
+- [ ] Deployment plan + Dockerfile sketch
+- [ ] CHECKPOINT C10: final commit — v1 closed
+
+---
+
+## Deferral list state (SPEC §2 — order binds)
+1. OCR fallback — **deferred by default** (Tesseract not installed; trigger = first real scanned resume)
+2. UI pass (phase 9) — active
+3. emotional_support + job_search_match stubs — active
+4. pgvector population — **deferred by design** (columns exist, unpopulated)
+5. Postgres → SQLite — not triggered (preflight green)
