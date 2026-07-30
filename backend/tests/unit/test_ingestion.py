@@ -48,7 +48,7 @@ class TestExtraction:
 
     async def test_scanned_pdf_detected(self) -> None:
         result = await extract_text(scanned_like_pdf())
-        assert result.needs_ocr  # clean stop → needs_ocr, OCR itself is deferred
+        assert result.needs_ocr  # near-empty text layer → pipeline runs OCR (T11.3)
 
 
 class TestDecomposeParsing:

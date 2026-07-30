@@ -80,7 +80,14 @@ actual time vs. box at each checkpoint. Deferral list state lives at the bottom.
       approval -> Job+Application+ApplicationEvent+audit row persisted (3x); update
       via returned application_id -> status changes in place, event appended, zero
       duplicate Job/Application rows; expiry still blocks writes.
-- [ ] T11.3 OCR fallback: Tesseract install, ocr.py, pipeline wiring (65m)
+- [x] T11.3 OCR fallback: Tesseract install (winget, UB-Mannheim build), ocr.py
+      (pdfplumber rasterize + pytesseract, explicit install-path fallback since
+      PATH isn't reliable for winget on Windows), pipeline.py needs_ocr branch
+      now runs OCR instead of stopping; missing-binary path fails to
+      status=failed with a reason, not a crash (65m). Verified live: uploaded
+      a synthetic scanned PDF (rasterized text, no real text layer) through
+      the real REST endpoint -> status=stored, extraction_method=ocr, 2
+      credentials correctly decomposed from the OCR'd text.
 - [ ] CHECKPOINT C11: demo all three live, commit, pointer update
 
 ---
