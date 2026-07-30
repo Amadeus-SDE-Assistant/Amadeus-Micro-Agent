@@ -15,7 +15,7 @@
   --accent-wash: #f6ede5;
   --danger: #a33636;
   --ok: #2f6b46;
-  --serif: "Fraunces", Georgia, serif;
+  --serif: "Libre Baskerville", Baskerville, Georgia, serif;
   --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
@@ -63,7 +63,7 @@ body {
 .wordmark {
   margin: 0;
   font-family: var(--serif);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 1.65rem;
   letter-spacing: -0.01em;
   color: var(--accent-deep);
@@ -97,6 +97,7 @@ body {
 
 .msg.assistant .author {
   font-family: var(--serif);
+  font-weight: 700;
   font-size: 0.95rem;
   color: var(--accent-deep);
   letter-spacing: 0;
@@ -169,7 +170,7 @@ body {
 .approval .author {
   display: block;
   font-family: var(--serif);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.95rem;
   color: var(--accent-deep);
   margin-bottom: 0.35rem;
@@ -271,7 +272,7 @@ button:disabled {
 
 .upload h2 {
   font-family: var(--serif);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 1.15rem;
   margin: 0 0 0.35rem;
 }
