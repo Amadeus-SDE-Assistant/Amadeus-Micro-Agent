@@ -36,10 +36,10 @@ async def session_scope(
             raise
 
 
-async def check_db(engine: AsyncEngine, timeout: float = 2.0) -> bool:
+async def check_db(engine: AsyncEngine, probe_seconds: float = 2.0) -> bool:
     """Truthful liveness probe for /api/health (SPEC §10)."""
     try:
-        async with asyncio.timeout(timeout), engine.connect() as conn:
+        async with asyncio.timeout(probe_seconds), engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
         return True
     except Exception:

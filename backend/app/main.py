@@ -10,6 +10,7 @@ from app.agent.service import AgentService
 from app.config import get_settings
 from app.db import check_db, create_engine, create_session_factory
 from app.logging_setup import configure_logging, log_extra, request_id_var
+from app.repositories.postgres import PgConversationRepository
 from app.routes.chat import router as chat_router
 
 logger = logging.getLogger("app")
@@ -21,6 +22,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.agent_service = AgentService()
     app.state.engine = create_engine(settings)
     app.state.session_factory = create_session_factory(app.state.engine)
+    app.state.conversations = PgConversationRepository(app.state.session_factory)
     yield
     await app.state.agent_service.shutdown()
     await app.state.engine.dispose()

@@ -1,9 +1,10 @@
 import asyncio
 import sys
 
-from alembic import context
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
+
+from alembic import context
 
 if sys.platform == "win32":
     # Same constraint as run.py: asyncpg needs a working event loop policy here too.

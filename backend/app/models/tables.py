@@ -47,7 +47,8 @@ class Credential(Base):
 
     id: Mapped[uuid.UUID] = _uuid_pk()
     candidate_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("candidate.id"), index=True)
-    kind: Mapped[str] = mapped_column(String(30))  # experience|education|skill|project|certification
+    # kind: experience|education|skill|project|certification
+    kind: Mapped[str] = mapped_column(String(30))
     title: Mapped[str] = mapped_column(String(300))
     org: Mapped[str | None] = mapped_column(String(300))
     start_date: Mapped[str | None] = mapped_column(String(10))  # ISO date or YYYY-MM
