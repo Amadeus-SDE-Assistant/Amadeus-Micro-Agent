@@ -32,10 +32,14 @@ actual time vs. box at each checkpoint. Deferral list state lives at the bottom.
       the dev DB with fixture rows; needs a dedicated amadeus_test database.
 
 ## Phase 6 — Capabilities + approval gate (90m)
-- [ ] T6.1 ApprovalGate: can_use_tool, intent string, SSE event, audit rows (40m)
-- [ ] T6.2 resume_store real: pipeline + repo behind one batched approval (30m)
-- [ ] T6.3 Remaining 3 stubs + prompts.py (20m)
-- [ ] CHECKPOINT C6: definition-of-done demo, commit, pointer update — actual: ___m
+- [x] T6.1 ApprovalGate: can_use_tool, intent string, SSE event, audit rows (40m)
+- [x] T6.2 resume_store real: pipeline + repo behind one batched approval (30m)
+- [x] T6.3 Remaining 3 stubs + prompts.py (20m)
+- [x] CHECKPOINT C6: definition-of-done demo, commit, pointer update — actual:
+      ~100m (+11%, under threshold). SECURITY FIX from the live demo:
+      allowed_tools bypasses can_use_tool — first demo wrote WITHOUT approval;
+      write tools now excluded from allowed_tools + regression test. Approve
+      and deny paths both verified live with audit rows.
 
 ## Phase 7 — Evals + tests (75m)
 - [ ] T7.1 Unit + integration suites per SPEC §9 (35m)
