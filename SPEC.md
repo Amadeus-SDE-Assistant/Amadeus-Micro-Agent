@@ -485,3 +485,90 @@ much and should be split.
 - [x] Boundaries — approval gate verified approve/deny/expire; audit rows live
 
 v1 closed 2026-07-30 at checkpoint C10.
+
+---
+
+## 14. Phase 11 amendment — gap-closing pass
+
+Opened 2026-07-30, after v1 close and merge to `main` (PR #2, `6027b90`). Not a new
+project: three items already named in §12/docs/v1-summary.md as honest gaps, closed in
+one small pinned increment before considering any "big upgrade." Same rules as §2 carry
+over unchanged: pinned budget, binding order, >25% overrun defers the next item, no
+box extension.
+
+**Budget: ~3h**, new pinned number on top of v1's closed ~13h10.
+
+| # | Task | Box | Cumulative |
+|---|------|-----|-----------|
+| 11.1 | Chat history re-render on reload | 35m | 0:35 |
+| 11.2 | `application_track` promotion to a real write capability | 70m | 1:45 |
+| 11.3 | OCR fallback (Tesseract) | 65m | 2:50 |
+
+`emotional_support` — considered and dropped from scope: it already exists as a
+registered raw-LLM stub (shipped Phase 6, `db5b71d`), which is exactly what was being
+asked for. No task needed.
+
+### T11.1 — Chat history re-render (35m)
+
+`ConversationRepository.get_messages()` already exists and works in both
+implementations (`repositories/postgres.py`, `repositories/memory.py`) — nothing calls
+it. Add `GET /api/conversations/{id}/messages` + a `MessageOut`-shaped response, plus
+client-side `conversationId` persistence (`ChatWindow.tsx` currently generates a fresh
+random id every mount, never persisted) and a fetch-on-mount hydration path.
+- **AC:** reload the page mid-conversation → prior messages re-render in order; no
+  duplicate send; a conversation with zero messages still mounts cleanly.
+
+### T11.2 — `application_track` promotion (70m)
+
+Follows the `resume_store` pattern (`capabilities/resume_store.py`): pull
+`CapabilityContext`, call a repository, return a summary. `Application`/
+`ApplicationEvent` tables are already migrated, but `Application.job_id` is a
+**non-nullable FK to `Job`**, and no `JobRepository` or `ApplicationRepository`
+Protocol exists yet (`resume_store` only needed `CredentialRepository`) — this task
+builds both.
+
+**Design decision (approved 2026-07-30): no job dedup.** The tool takes
+`{company, title, status, notes, application_id?}`. If `application_id` is given and
+found, append an `ApplicationEvent` + update status. Otherwise create a **new** `Job`
+row unconditionally (no fuzzy title/company matching) + `Application` + an initial
+`ApplicationEvent`, and return the new `application_id` in the tool result so the
+agent can reference it in later turns. Real job matching is explicitly out of scope
+here — it belongs to `job_search_match`'s eventual promotion, not this task.
+
+- Add `JobRepository` + `ApplicationRepository` Protocols (`repositories/base.py`) and
+  Postgres + in-memory implementations, under the existing conformance suite pattern.
+- Extend `CapabilityContext` (`capabilities/context.py`) with `jobs` / `applications`
+  fields; wire in `main.py` alongside the existing `credentials` field.
+- Rewrite `application_track` body per the design above.
+- Register an intent builder in `registry.py`'s `_WRITE_INTENTS` — the `ApprovalGate`
+  itself is already tool-agnostic (`agent/approvals.py`); no gate changes needed.
+- **AC:** "I applied to X for a Y role" → one descriptive approval → `Job` +
+  `Application` + `ApplicationEvent` rows persisted, audit row present; a follow-up
+  turn referencing the returned `application_id` appends an event and updates status
+  without creating a second `Job`/`Application`.
+
+### T11.3 — OCR fallback (65m)
+
+`needs_ocr` is a real, reachable terminal pipeline state
+(`ingestion/extract.py` → `SCAN_THRESHOLD_CHARS`; handled in `ingestion/pipeline.py`)
+with no downstream consumer. No `ocr.py` module, no `pytesseract`/Tesseract anywhere
+in the codebase (confirmed by repo-wide search) — this is deferral item 1 from §2,
+untouched since spec time.
+
+- Install Tesseract (system binary, `winget`) + add `pytesseract` (and `Pillow` as a
+  direct dependency — currently only transitive) to `backend/pyproject.toml`.
+- New `ingestion/ocr.py`: render PDF page images (`pypdfium2`, already a transitive
+  dep via `pdfplumber`) → `pytesseract` → text.
+- Wire into `pipeline.py`'s `needs_ocr` branch: run OCR instead of stopping, tag
+  `extraction_method=ocr`, continue to `decompose`. Missing-binary case still fails
+  loudly and recoverably (SPEC §10) — readable error, not a crash.
+- **AC:** a synthetic scanned-style fixture reaches `decomposed`/`stored` via OCR,
+  `document.extraction_method=ocr` visible; Tesseract-missing case produces a
+  structured error, not an unhandled exception.
+
+### CHECKPOINT C11
+
+Demo all three live in the browser (reload mid-conversation, log + approve an
+application end-to-end, OCR a scanned fixture to stored credentials) → commit →
+update the progress pointer. After C11: pause and reconsider scope before any
+"big upgrade" work, per the user's explicit sequencing.

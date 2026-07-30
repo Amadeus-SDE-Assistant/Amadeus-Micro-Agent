@@ -68,6 +68,15 @@ actual time vs. box at each checkpoint. Deferral list state lives at the bottom.
 
 ---
 
+## Phase 11 — Gap-closing pass (~3h, SPEC §14)
+- [ ] T11.1 Chat history re-render: GET route + client persistence + hydrate (35m)
+- [ ] T11.2 `application_track` promotion: Job + Application repos, context wiring,
+      capability rewrite, intent builder — no-dedup design approved 2026-07-30 (70m)
+- [ ] T11.3 OCR fallback: Tesseract install, ocr.py, pipeline wiring (65m)
+- [ ] CHECKPOINT C11: demo all three live, commit, pointer update
+
+---
+
 ## Deferral list — FINAL STATE at v1 close
 1. OCR fallback — **deferred** (needs_ocr path stops cleanly; trigger = first real
    scanned resume; install = winget tesseract + pytesseract)
