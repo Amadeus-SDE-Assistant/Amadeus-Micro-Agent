@@ -14,10 +14,12 @@ actual time vs. box at each checkpoint. Deferral list state lives at the bottom.
       found by the live browser demo, which is the point of the checkpoint.)
 
 ## Phase 4 — Persistence (90m)
-- [ ] T4.1 docker-compose + DB wiring + truthful health (15m)
-- [ ] T4.2 SQLAlchemy models + initial Alembic migration (40m)
-- [ ] T4.3 Repository protocols + pg impls + fakes + chat persistence (35m)
-- [ ] CHECKPOINT C4: commit, pointer update — actual: ___m
+- [x] T4.1 docker-compose + DB wiring + truthful health (15m)
+- [x] T4.2 SQLAlchemy models + initial Alembic migration (40m)
+- [x] T4.3 Repository protocols + pg impls + fakes + chat persistence (35m)
+- [x] CHECKPOINT C4: commit, pointer update — actual: ~80m (under box.
+      Port 5432 collision with unrelated karyio-postgres container →
+      Amadeus DB lives on host port 5433.)
 
 ## Phase 5 — Document ingestion (150m)
 - [ ] T5.1 Upload endpoint: validate, dedupe, BlobStore, document row (40m)
