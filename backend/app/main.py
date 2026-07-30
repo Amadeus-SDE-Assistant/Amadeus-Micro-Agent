@@ -22,6 +22,7 @@ from app.repositories.postgres import (
 )
 from app.routes.approvals import router as approvals_router
 from app.routes.chat import router as chat_router
+from app.routes.conversations import router as conversations_router
 from app.routes.documents import router as documents_router
 
 logger = logging.getLogger("app")
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
     configure_logging(settings.log_level)
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
     app.include_router(chat_router)
+    app.include_router(conversations_router)
     app.include_router(documents_router)
     app.include_router(approvals_router)
 

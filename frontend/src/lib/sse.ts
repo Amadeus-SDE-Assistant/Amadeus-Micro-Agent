@@ -1,5 +1,18 @@
 // SSE-over-fetch client: EventSource can't POST, so we parse the stream by hand.
 
+export interface HistoryMessage {
+  role: "user" | "assistant";
+  content: { text?: string };
+}
+
+/** Chat history for a conversation id (T11.1) — [] for a brand-new id, never a 404. */
+export async function fetchHistory(conversationId: string): Promise<HistoryMessage[]> {
+  const resp = await fetch(`/api/conversations/${conversationId}/messages`);
+  if (!resp.ok) return [];
+  const body = (await resp.json()) as { messages: HistoryMessage[] };
+  return body.messages;
+}
+
 export type AgentEventType =
   | "text"
   | "tool_use"
