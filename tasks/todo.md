@@ -49,8 +49,10 @@ actual time vs. box at each checkpoint. Deferral list state lives at the bottom.
 - [x] CHECKPOINT C7: commit, pointer update — actual: ~65m (under box)
 
 ## Phase 8 — Review (60m)
-- [ ] /code-review since ec59c70; fix or waive findings
-- [ ] Manual reliability checks: API outage, subprocess kill — recorded
+- [x] /code-review since ec59c70; fix or waive findings — 10 fixed, 7 waived
+      with reasons (docs/review/P8-review-notes.md); actual ~70m (+17%)
+- [x] Manual reliability checks: API outage PASS, subprocess kill PASS —
+      recorded in review notes
 
 ## Phase 9 — UI pass (60m)
 - [ ] /impeccable init → PRODUCT.md
