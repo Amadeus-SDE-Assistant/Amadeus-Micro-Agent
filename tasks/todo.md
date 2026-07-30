@@ -74,8 +74,12 @@ actual time vs. box at each checkpoint. Deferral list state lives at the bottom.
       with `tools=[]`; regression test confirmed RED before GREEN. Commit `1b5add5`.
 - [x] T11.1 Chat history re-render: GET route + client persistence + hydrate (35m)
       — verified live (reload mid-conversation, no dupes). Commit `98e417e`.
-- [ ] T11.2 `application_track` promotion: Job + Application repos, context wiring,
-      capability rewrite, intent builder — no-dedup design approved 2026-07-30 (70m)
+- [x] T11.2 `application_track` promotion: Job + Application repos, context wiring,
+      capability rewrite, intent builder — no-dedup design approved 2026-07-30 (70m).
+      Verified live via curl against the real server + real Postgres: create -> one
+      approval -> Job+Application+ApplicationEvent+audit row persisted (3x); update
+      via returned application_id -> status changes in place, event appended, zero
+      duplicate Job/Application rows; expiry still blocks writes.
 - [ ] T11.3 OCR fallback: Tesseract install, ocr.py, pipeline wiring (65m)
 - [ ] CHECKPOINT C11: demo all three live, commit, pointer update
 

@@ -14,10 +14,12 @@ from app.db import check_db, create_engine, create_session_factory
 from app.logging_setup import configure_logging, log_extra, request_id_var
 from app.repositories.blob_fs import FsBlobStore
 from app.repositories.postgres import (
+    PgApplicationRepository,
     PgApprovalRepository,
     PgConversationRepository,
     PgCredentialRepository,
     PgDocumentRepository,
+    PgJobRepository,
     ensure_default_candidate,
 )
 from app.routes.approvals import router as approvals_router
@@ -36,6 +38,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.conversations = PgConversationRepository(app.state.session_factory)
     app.state.documents = PgDocumentRepository(app.state.session_factory)
     app.state.credentials = PgCredentialRepository(app.state.session_factory)
+    app.state.jobs = PgJobRepository(app.state.session_factory)
+    app.state.applications = PgApplicationRepository(app.state.session_factory)
     app.state.blobs = FsBlobStore(settings.data_dir / "blobs")
     app.state.default_candidate_id = await ensure_default_candidate(
         app.state.session_factory
@@ -44,6 +48,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         CapabilityContext(
             credentials=app.state.credentials,
             candidate_id=app.state.default_candidate_id,
+            jobs=app.state.jobs,
+            applications=app.state.applications,
         )
     )
     app.state.approval_gate = ApprovalGate(
