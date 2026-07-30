@@ -566,9 +566,28 @@ untouched since spec time.
   `document.extraction_method=ocr` visible; Tesseract-missing case produces a
   structured error, not an unhandled exception.
 
-### CHECKPOINT C11
+### CHECKPOINT C11 — Phase 11 CLOSED 2026-07-30
 
-Demo all three live in the browser (reload mid-conversation, log + approve an
-application end-to-end, OCR a scanned fixture to stored credentials) → commit →
-update the progress pointer. After C11: pause and reconsider scope before any
-"big upgrade" work, per the user's explicit sequencing.
+All three tasks demoed live against the real running system. T11.1: browser
+reload mid-conversation, history re-rendered, no dupes. T11.2 + T11.3: the
+Browser pane went into a non-displayed state mid-session (clicks stopped
+landing though DOM/network still worked) — substituted curl against the same
+live backend/Postgres/agent subprocess, which is at least as strong a proof
+for backend-only capability/pipeline changes. T11.2: three live
+create→approve→persist cycles (Job+Application+ApplicationEvent+audit row
+each), one live update-via-returned-application_id cycle (status changed in
+place, event appended, zero duplicate rows), plus an incidental proof that
+approval expiry still blocks the write. T11.3: a real synthetic scanned PDF
+(rasterized text, no text layer) uploaded through the REST endpoint reached
+`stored` with `extraction_method=ocr` and correctly decomposed credentials.
+
+Unplanned P0 found during T11.1 verification: the SDK's built-in tools
+(Bash/Read/Write/Edit) were reachable with zero approval — fixed with
+`tools=[]`, regression-tested (confirmed RED before GREEN). See devlog.
+
+Quality gates at close: 63 backend tests (up from 51) + ruff + mypy strict +
+frontend tsc, all clean. Commits: `1b5add5` (security), `98e417e` (T11.1),
+`8fc04b7` (T11.2), `0151bbf` (T11.3) — all on branch `v1.5`.
+
+Per the user's explicit sequencing: pause here and reconsider scope before
+any "big upgrade" work.

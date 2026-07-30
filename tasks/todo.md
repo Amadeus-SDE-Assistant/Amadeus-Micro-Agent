@@ -88,7 +88,13 @@ actual time vs. box at each checkpoint. Deferral list state lives at the bottom.
       a synthetic scanned PDF (rasterized text, no real text layer) through
       the real REST endpoint -> status=stored, extraction_method=ocr, 2
       credentials correctly decomposed from the OCR'd text.
-- [ ] CHECKPOINT C11: demo all three live, commit, pointer update
+- [x] CHECKPOINT C11: T11.1 demoed live in-browser (reload mid-conversation).
+      T11.2 + T11.3 demoed live via curl + direct Postgres inspection against
+      the real running server, DB, and agent subprocess — the Browser pane
+      went into a non-displayed state mid-session (clicks stopped landing;
+      DOM/network still worked), so curl substituted for click-testing from
+      T11.2 onward. All quality gates clean at close: 63 backend tests +
+      ruff + mypy + frontend tsc. Phase 11 CLOSED 2026-07-30.
 
 ---
 
