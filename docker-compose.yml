@@ -1,0 +1,21 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: amadeus-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: amadeus
+      POSTGRES_DB: amadeus
+    ports:
+      # 5433 host-side: 5432 is held by another local project (karyio-postgres).
+      - "5433:5432"
+    volumes:
+      - amadeus_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d amadeus"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  amadeus_pgdata:
