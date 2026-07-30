@@ -591,3 +591,138 @@ frontend tsc, all clean. Commits: `1b5add5` (security), `98e417e` (T11.1),
 
 Per the user's explicit sequencing: pause here and reconsider scope before
 any "big upgrade" work.
+
+---
+
+## 15. Phase 12 amendment — v2: job capture + profile layer
+
+Opened 2026-07-30, after Phase 11 close (`b963639`) and the user's explicit pause to
+reconsider scope. Confirmed via `interview-me` (full interview record in
+`docs/intent/v2-job-capture-and-profile.md`). Same rules as §2/§14 carry over
+unchanged: pinned budget, binding order, >25% overrun defers the next item, no box
+extension.
+
+**Budget: ~8h**, new pinned number on top of v1's ~13h10 + Phase 11's ~3h.
+
+**Why:** long-term vision is job hunting + individualized services + mental care
+combined. Too large to build directly. This phase grounds the platform in one real
+job-hunting slice (job capture + real matching) *and* lays the first architectural
+groundwork for the bigger vision (a generic personalization data layer) — deliberately
+a baseline of each, not the full vision of either.
+
+**Deliberate scope cuts (decided during the interview, not oversights):**
+- No automated job-data fetching of any kind — not Google-result scraping, not
+  LinkedIn, not even ATS JSON-endpoint polling (Greenhouse/Lever-style). Manual paste
+  only. Ruled out (not deferred) once weighed against building a real product: ToS/
+  enforcement risk scales with commercial use in a way "slow and polite" fetching
+  doesn't fix, and a posting the user personally found is a better freshness/
+  authenticity signal than anything a scraper could infer — this was the original
+  motivating problem, and manual paste solves it by construction.
+- `job_search_match`'s stub docstring names pgvector similarity as its promotion path
+  (deferral item 4, still open). This phase promotes it with **direct LLM comparison
+  of stored `Job`/`Credential` text**, not vector similarity — pgvector population
+  stays deferred.
+- No domain/subagent restructuring (the "how the agent is structured" half of the
+  architecture question). One concession: `ProfileFact` is a generic key/value model,
+  not job-seeking-specific, so a future domain can read the same table without a
+  migration.
+- No resume/JD tailoring, no mental-care features, no auth/multi-candidate, no wiring
+  `job_search_match` to actually read the profile layer yet (exists + round-trips;
+  consulted by matching is the next increment).
+
+| # | Task | Box | Cumulative |
+|---|------|-----|-----------|
+| 12.1 | `ProfileFact` schema + repository (Protocol + Postgres + memory + conformance) | 60m | 1:00 |
+| 12.2 | Profile capabilities: `profile_save` (write, gated) + `profile_recall` (read) | 60m | 2:00 |
+| 12.3 | Job-posting extraction module (`ingestion/job_extract.py`) | 60m | 3:00 |
+| 12.4 | `job_capture` capability: paste → extract → store behind one approval | 50m | 3:50 |
+| 12.5 | `JobRepository.list_for()` — Postgres + memory + conformance update | 30m | 4:20 |
+| 12.6 | `job_search_match` promotion: real fit assessment vs. stored jobs + credentials | 70m | 5:30 |
+| 12.7 | Tests + quality gates (unit/integration, golden-set update, ruff/mypy/pytest) | 70m | 6:40 |
+
+~1h20 headroom against the 8h ceiling — intentionally larger than v1's phases usually
+carried, because this phase touches more genuinely novel surface (first LLM extraction
+for a new domain, first generic cross-domain schema) than a promotion-ladder task did.
+
+### T12.1 — `ProfileFact` schema + repository (60m)
+
+New table: `candidate_id` (FK), `key` (str), `value` (text/JSONB), `updated_at`.
+Generic by design — not `job_preference`, just `profile_fact` — so it's reusable by a
+future mental-care domain without a migration. `set()` is an upsert on
+`(candidate_id, key)`; `get_all()` returns everything for a candidate. Protocol in
+`repositories/base.py`, Postgres + memory impls, under the existing conformance suite.
+- **AC:** conformance suite passes for both implementations; upsert semantics verified
+  (setting the same key twice updates, doesn't duplicate).
+
+### T12.2 — Profile capabilities (60m)
+
+`profile_save` (write: one or more key/value facts in one call, mirrors
+`resume_store`'s batched-approval shape) + `profile_recall` (read-only, no gate).
+`CapabilityContext` gets a `profile: ProfileRepository` field, wired in `main.py`.
+Intent builder registered in `registry.py`'s `_WRITE_INTENTS`
+(`f"mcp__{SERVER_NAME}__profile_save"`), descriptive per §11
+("Save that you prefer remote roles in fintech to your profile?").
+- **AC:** "Remember that I prefer remote roles in fintech" → one descriptive approval
+  → fact persisted; a later turn asking "what do you know about my job preferences?"
+  correctly recalls it via `profile_recall`, no approval needed for the read.
+
+### T12.3 — Job-posting extraction module (60m)
+
+`ingestion/job_extract.py`, mirrors `ingestion/decompose.py`'s shape: pasted job text
+in, Pydantic-validated structured data out (`JobIn` fields + a `raw` dict for
+requirements/highlights extracted but not in the typed schema). Malformed/non-job-like
+input raises a typed error (mirrors `DecompositionError`), handled gracefully by the
+capability, not a crash.
+- **AC:** a real job posting's pasted text extracts into correct `title`/`company` +
+  a populated `raw` dict; garbage input produces a readable "couldn't extract" message,
+  not an exception.
+
+### T12.4 — `job_capture` capability (50m)
+
+New tool, same shape as `resume_store`: pasted job text → T12.3 extraction →
+`ctx.jobs.add()` behind one batched approval. Intent builder added to
+`_WRITE_INTENTS` (e.g. "Save this posting — {title} at {company} — so you can check
+your fit against it?").
+- **AC:** paste a real job posting into chat → one approval → structured `Job` row
+  persisted (`source="user_pasted"` or similar, distinct from
+  `application_track`'s `"user_reported"`).
+
+### T12.5 — `JobRepository.list_for()` (30m)
+
+Current Protocol only has `add()`. `job_search_match` needs to read back captured
+jobs. `Job` has no `candidate_id` column today (`application_track` doesn't scope it
+either) — add `list_for(candidate_id)` that joins through `Application` where one
+exists, or falls back to "all `Job` rows" given v1/v2's single-candidate constraint;
+exact join shape decided at implementation time, not here. Both impls + conformance
+update.
+- **AC:** jobs captured via T12.4 (no `Application` yet) and jobs created via
+  `application_track` both come back from one query.
+
+### T12.6 — `job_search_match` promotion (70m)
+
+Rewrite the stub body only (per the promotion invariant — no registry/routing/
+frontend changes). New optional `job_id` arg (mirrors `application_track`'s
+`application_id` pattern): if given, assess fit between that specific `Job` and the
+candidate's stored credentials via a real LLM call grounded in both; if omitted, fall
+back to the existing general-guidance behavior (preserves the "what should I look
+for" use case). No pgvector — direct text comparison, per the scope cut above.
+- **AC:** after capturing a real posting (T12.4), asking "how do I match this job?"
+  returns an assessment that references actual stored credential content and actual
+  job content — not a generic answer indistinguishable from the old stub.
+
+### T12.7 — Tests + quality gates (70m)
+
+Unit tests for `ProfileFact` repo (upsert), extraction error paths, both new
+capabilities' approval-gated writes, `job_search_match`'s two arg modes. Update the
+routing eval golden set with cases for `profile_save`/`profile_recall`/`job_capture`
+triggers (new tools change routing surface — same reason T7.2's golden set exists).
+`ruff check`, `ruff format --check`, `mypy app`, `pytest`, frontend `tsc` all clean —
+no frontend changes expected, but the check still runs.
+- **AC:** all quality gates green; golden set still clears the ≥80% gate.
+
+### CHECKPOINT C12 — to be demoed at close (not yet run)
+
+Same demo bar as C11: live against the real running system. Two flows:
+(1) job capture → real match assessment (T12.4 → T12.6), (2) profile round-trip
+(T12.2). Per this project's ritual — a phase isn't done until demonstrated working,
+not just written.

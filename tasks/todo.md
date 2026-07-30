@@ -98,6 +98,27 @@ actual time vs. box at each checkpoint. Deferral list state lives at the bottom.
 
 ---
 
+## Phase 12 — v2: job capture + profile layer (~8h, SPEC §15)
+Scoped via `interview-me` after Phase 11's pause; full interview record in
+`docs/intent/v2-job-capture-and-profile.md`. Not started.
+- [ ] T12.1 `ProfileFact` schema + repository — Protocol + Postgres + memory +
+      conformance (60m)
+- [ ] T12.2 Profile capabilities: `profile_save` (write, gated) +
+      `profile_recall` (read) + context wiring + intent builder (60m)
+- [ ] T12.3 Job-posting extraction module (`ingestion/job_extract.py`) (60m)
+- [ ] T12.4 `job_capture` capability: paste → extract → store behind one
+      approval (50m)
+- [ ] T12.5 `JobRepository.list_for()` — Postgres + memory + conformance
+      update (30m)
+- [ ] T12.6 `job_search_match` promotion: real fit assessment vs. stored
+      jobs + credentials, no pgvector (70m)
+- [ ] T12.7 Tests + quality gates: unit/integration coverage, routing
+      golden-set update, ruff/mypy/pytest/tsc clean (70m)
+- [ ] CHECKPOINT C12: demo both flows live (capture→match, profile
+      round-trip) → commit → update progress pointer
+
+---
+
 ## Deferral list — FINAL STATE at v1 close
 1. OCR fallback — **deferred** (needs_ocr path stops cleanly; trigger = first real
    scanned resume; install = winget tesseract + pytesseract)

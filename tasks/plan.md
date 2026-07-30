@@ -246,3 +246,65 @@ clean stop.
 ### CHECKPOINT C11
 Demo all three live → commit → update progress pointer. Pause for scope
 reconsideration before any "big upgrade" work.
+
+---
+
+## Phase 12 — v2: job capture + profile layer (box ~8h, SPEC §15)
+
+Opened after Phase 11's pause and an `interview-me` session to scope v2
+(`docs/intent/v2-job-capture-and-profile.md`). Two additions: a chat-native
+job-capture capability (real `job_search_match` promotion) and a generic
+personal-profile data layer — the first architectural groundwork for the
+longer-term job-hunting + individualized-services + mental-care vision. No
+automated job-data scraping/fetching (manual paste only — a deliberate legal/
+product decision, not a shortcut); no pgvector; no domain/subagent
+restructuring; no resume/JD tailoring, mental-care features, or auth.
+
+### T12.1 `ProfileFact` schema + repository (60m)
+New table (`candidate_id`, `key`, `value`, `updated_at`), generic/domain-agnostic
+by design. Protocol in `repositories/base.py`, Postgres + memory impls under
+the existing conformance suite. `set()` upserts on `(candidate_id, key)`.
+- **AC:** conformance suite passes both impls; re-setting a key updates in
+  place, doesn't duplicate.
+
+### T12.2 Profile capabilities (60m)
+`profile_save` (write, batched-approval shape like `resume_store`) +
+`profile_recall` (read-only). `CapabilityContext` gains `profile`; intent
+builder registered in `registry.py`.
+- **AC:** "remember X" → one approval → persisted; later turn asking about it
+  → `profile_recall` returns it correctly, no approval needed.
+
+### T12.3 Job-posting extraction module (60m)
+`ingestion/job_extract.py`, mirrors `ingestion/decompose.py`: pasted job text
+→ Pydantic-validated `JobIn` + `raw` dict. Typed error on malformed input.
+- **AC:** real posting text → correct title/company + populated raw dict;
+  garbage input → readable error, not a crash.
+
+### T12.4 `job_capture` capability (50m)
+Pasted job text → T12.3 extraction → `ctx.jobs.add()` behind one approval.
+Intent builder added.
+- **AC:** paste a real posting → one approval → structured `Job` row
+  persisted.
+
+### T12.5 `JobRepository.list_for()` (30m)
+Protocol currently only has `add()`. Add a read method covering jobs from
+both `job_capture` and `application_track` origins. Both impls + conformance
+update.
+- **AC:** jobs from both capture paths return from one query.
+
+### T12.6 `job_search_match` promotion (70m)
+Rewrite stub body only. New optional `job_id` arg (mirrors
+`application_track`'s `application_id`): given → real LLM-grounded fit
+assessment against that job + stored credentials; omitted → existing
+general-guidance behavior preserved. Direct text comparison, no pgvector.
+- **AC:** after capturing a real posting, "how do I match this job?" returns
+  an assessment grounded in actual stored data, not a generic answer.
+
+### T12.7 Tests + quality gates (70m)
+Unit coverage for the new repo/capabilities/extraction error paths; routing
+eval golden-set additions for the two new tools; ruff/mypy/pytest/tsc clean.
+- **AC:** all quality gates green; golden set still clears ≥80%.
+
+### CHECKPOINT C12
+Demo both flows live (capture→match, profile round-trip) → commit → update
+progress pointer.
