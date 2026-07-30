@@ -8,9 +8,12 @@ import uuid
 from typing import Any
 
 from app.repositories.base import (
+    ApplicationOut,
     CredentialIn,
     CredentialOut,
     DocumentOut,
+    JobIn,
+    JobOut,
     MessageOut,
 )
 
@@ -92,6 +95,44 @@ class MemoryDocumentRepository:
                 "error": error,
             }
         )
+
+
+class MemoryJobRepository:
+    def __init__(self) -> None:
+        self._rows: dict[uuid.UUID, JobOut] = {}
+
+    async def add(self, job: JobIn) -> JobOut:
+        row = JobOut(id=uuid.uuid4(), **job.model_dump())
+        self._rows[row.id] = row
+        return row
+
+
+class MemoryApplicationRepository:
+    def __init__(self) -> None:
+        self._rows: dict[uuid.UUID, ApplicationOut] = {}
+        self.events: dict[uuid.UUID, list[tuple[str, dict[str, Any]]]] = {}
+
+    async def create(
+        self, candidate_id: uuid.UUID, job_id: uuid.UUID, status: str
+    ) -> ApplicationOut:
+        row = ApplicationOut(
+            id=uuid.uuid4(), candidate_id=candidate_id, job_id=job_id, status=status
+        )
+        self._rows[row.id] = row
+        self.events[row.id] = []
+        return row
+
+    async def get_by_id(self, application_id: uuid.UUID) -> ApplicationOut | None:
+        return self._rows.get(application_id)
+
+    async def set_status(self, application_id: uuid.UUID, status: str) -> None:
+        row = self._rows[application_id]
+        self._rows[application_id] = row.model_copy(update={"status": status})
+
+    async def add_event(
+        self, application_id: uuid.UUID, event_type: str, payload: dict[str, Any]
+    ) -> None:
+        self.events[application_id].append((event_type, payload))
 
 
 class MemoryApprovalRepository:

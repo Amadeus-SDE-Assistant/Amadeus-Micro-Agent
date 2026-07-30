@@ -8,17 +8,22 @@ what makes the fakes trustworthy stand-ins (SPEC §9).
 import uuid
 
 from app.repositories.base import (
+    ApplicationRepository,
     BlobStore,
     ConversationRepository,
     CredentialIn,
     CredentialRepository,
     DocumentRepository,
+    JobIn,
+    JobRepository,
 )
 from app.repositories.memory import (
+    MemoryApplicationRepository,
     MemoryBlobStore,
     MemoryConversationRepository,
     MemoryCredentialRepository,
     MemoryDocumentRepository,
+    MemoryJobRepository,
 )
 
 
@@ -81,6 +86,35 @@ async def assert_blob_contract(store: BlobStore) -> None:
     assert await store.get(uri) == b"pdf bytes"
 
 
+async def assert_job_contract(repo: JobRepository) -> None:
+    job = await repo.add(JobIn(title="Backend Engineer", company="Acme"))
+    assert job.id is not None
+    assert job.title == "Backend Engineer" and job.company == "Acme"
+    assert job.source == "user_reported"  # no-dedup design (SPEC §14 T11.2)
+
+    # No dedup: adding the same title/company again makes a second row.
+    again = await repo.add(JobIn(title="Backend Engineer", company="Acme"))
+    assert again.id != job.id
+
+
+async def assert_application_contract(
+    repo: ApplicationRepository, candidate_id: uuid.UUID, job_id: uuid.UUID
+) -> None:
+    app = await repo.create(candidate_id, job_id, "applied")
+    assert app.candidate_id == candidate_id
+    assert app.job_id == job_id
+    assert app.status == "applied"
+
+    fetched = await repo.get_by_id(app.id)
+    assert fetched is not None and fetched.id == app.id
+    assert await repo.get_by_id(uuid.uuid4()) is None
+
+    await repo.add_event(app.id, "status_update", {"note": "interview scheduled"})
+    await repo.set_status(app.id, "interviewing")
+    updated = await repo.get_by_id(app.id)
+    assert updated is not None and updated.status == "interviewing"
+
+
 async def test_memory_conversation_contract() -> None:
     await assert_conversation_contract(MemoryConversationRepository())
 
@@ -95,3 +129,12 @@ async def test_memory_document_contract() -> None:
 
 async def test_memory_blob_contract() -> None:
     await assert_blob_contract(MemoryBlobStore())
+
+
+async def test_memory_job_contract() -> None:
+    await assert_job_contract(MemoryJobRepository())
+
+
+async def test_memory_application_contract() -> None:
+    job = await MemoryJobRepository().add(JobIn(title="x", company="y"))
+    await assert_application_contract(MemoryApplicationRepository(), uuid.uuid4(), job.id)

@@ -40,6 +40,24 @@ class DocumentOut(BaseModel):
     error: str | None = None
 
 
+class JobIn(BaseModel):
+    title: str
+    company: str
+    source: str = "user_reported"
+    jd_text: str = ""
+
+
+class JobOut(JobIn):
+    id: uuid.UUID
+
+
+class ApplicationOut(BaseModel):
+    id: uuid.UUID
+    candidate_id: uuid.UUID
+    job_id: uuid.UUID
+    status: str
+
+
 class ConversationRepository(Protocol):
     async def ensure_conversation(self, sdk_session_id: str) -> uuid.UUID:
         """Get-or-create by external session id; returns the conversation pk."""
@@ -76,6 +94,29 @@ class DocumentRepository(Protocol):
         *,
         extraction_method: str | None = None,
         error: str | None = None,
+    ) -> None: ...
+
+
+class JobRepository(Protocol):
+    async def add(self, job: JobIn) -> JobOut: ...
+
+
+class ApplicationRepository(Protocol):
+    """No job-matching/dedup in v1 (SPEC §14 T11.2 design) — every application_track
+    call without a known application_id creates a fresh Job + Application. Real
+    matching belongs to job_search_match's eventual promotion.
+    """
+
+    async def create(
+        self, candidate_id: uuid.UUID, job_id: uuid.UUID, status: str
+    ) -> ApplicationOut: ...
+
+    async def get_by_id(self, application_id: uuid.UUID) -> ApplicationOut | None: ...
+
+    async def set_status(self, application_id: uuid.UUID, status: str) -> None: ...
+
+    async def add_event(
+        self, application_id: uuid.UUID, event_type: str, payload: dict[str, Any]
     ) -> None: ...
 
 

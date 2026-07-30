@@ -1,12 +1,39 @@
-import { useRef, useState } from "react";
-import { streamChat } from "../lib/sse";
+import { useEffect, useRef, useState } from "react";
+import { fetchHistory, streamChat } from "../lib/sse";
 import { type ChatMessage, MessageList, friendlyCapability } from "./MessageList";
+
+const CONVERSATION_ID_KEY = "amadeus:conversationId";
+
+/** Same id across reloads (T11.1) so history rehydration has something to key on. */
+function getOrCreateConversationId(): string {
+  const stored = localStorage.getItem(CONVERSATION_ID_KEY);
+  if (stored) return stored;
+  const fresh = crypto.randomUUID().slice(0, 8);
+  localStorage.setItem(CONVERSATION_ID_KEY, fresh);
+  return fresh;
+}
 
 export function ChatWindow() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const conversationId = useRef(crypto.randomUUID().slice(0, 8));
+  const conversationId = useRef(getOrCreateConversationId());
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchHistory(conversationId.current).then((history) => {
+      if (cancelled || history.length === 0) return;
+      // Don't clobber a message the user already sent while this was in flight.
+      setMessages((prev) =>
+        prev.length > 0
+          ? prev
+          : history.map((m) => ({ role: m.role, text: m.content.text ?? "" })),
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function send() {
     const text = input.trim();

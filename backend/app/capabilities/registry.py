@@ -41,8 +41,18 @@ def _resume_store_intent(args: dict[str, Any]) -> str:
     )
 
 
+def _application_track_intent(args: dict[str, Any]) -> str:
+    company = str(args.get("company", "")).strip() or "this company"
+    title = str(args.get("title", "")).strip() or "this role"
+    status = str(args.get("status", "")).strip() or "applied"
+    if str(args.get("application_id", "")).strip():
+        return f'Update your application to {company} for {title} to status "{status}"?'
+    return f"Log your application to {company} for {title} (status: {status})?"
+
+
 _WRITE_INTENTS: dict[str, Callable[[dict[str, Any]], str]] = {
     f"mcp__{SERVER_NAME}__resume_store": _resume_store_intent,
+    f"mcp__{SERVER_NAME}__application_track": _application_track_intent,
 }
 
 

@@ -91,3 +91,18 @@ async def test_hang_hits_timeout_and_yields_error(tmp_path: Any) -> None:
     events = await collect(service, "c1", "hi")
     assert [e.type for e in events] == [AgentEventType.ERROR]
     assert "too long" in (events[0].text or "")
+
+
+def test_default_client_has_no_builtin_tools(tmp_path: Any) -> None:
+    # Security regression: the ApprovalGate only knows about the jobseeker
+    # capabilities' write intents (registry._WRITE_INTENTS). Any tool it
+    # doesn't recognize — including the SDK's built-in Bash/Read/Write/Edit —
+    # is treated as read-only and auto-allowed (approvals.py: "intent=None
+    # marks the tool as read-only: allow"). Those built-ins must therefore
+    # never be reachable in the first place: `tools=[]` disables the SDK's
+    # entire built-in toolset, leaving only the jobseeker MCP server.
+    # Discovered live 2026-07-30: a single chat message caused real Bash/Read
+    # tool calls with zero approval prompt.
+    service = AgentService(make_settings(str(tmp_path)))
+    options = service._build_options("c1")
+    assert options.tools == []

@@ -68,6 +68,36 @@ actual time vs. box at each checkpoint. Deferral list state lives at the bottom.
 
 ---
 
+## Phase 11 — Gap-closing pass (~3h, SPEC §14)
+- [x] T11.0 (unplanned, P0): SDK built-in tools (Bash/Read/Write/Edit) were
+      reachable with zero approval — found live while verifying T11.1. Fixed
+      with `tools=[]`; regression test confirmed RED before GREEN. Commit `1b5add5`.
+- [x] T11.1 Chat history re-render: GET route + client persistence + hydrate (35m)
+      — verified live (reload mid-conversation, no dupes). Commit `98e417e`.
+- [x] T11.2 `application_track` promotion: Job + Application repos, context wiring,
+      capability rewrite, intent builder — no-dedup design approved 2026-07-30 (70m).
+      Verified live via curl against the real server + real Postgres: create -> one
+      approval -> Job+Application+ApplicationEvent+audit row persisted (3x); update
+      via returned application_id -> status changes in place, event appended, zero
+      duplicate Job/Application rows; expiry still blocks writes.
+- [x] T11.3 OCR fallback: Tesseract install (winget, UB-Mannheim build), ocr.py
+      (pdfplumber rasterize + pytesseract, explicit install-path fallback since
+      PATH isn't reliable for winget on Windows), pipeline.py needs_ocr branch
+      now runs OCR instead of stopping; missing-binary path fails to
+      status=failed with a reason, not a crash (65m). Verified live: uploaded
+      a synthetic scanned PDF (rasterized text, no real text layer) through
+      the real REST endpoint -> status=stored, extraction_method=ocr, 2
+      credentials correctly decomposed from the OCR'd text.
+- [x] CHECKPOINT C11: T11.1 demoed live in-browser (reload mid-conversation).
+      T11.2 + T11.3 demoed live via curl + direct Postgres inspection against
+      the real running server, DB, and agent subprocess — the Browser pane
+      went into a non-displayed state mid-session (clicks stopped landing;
+      DOM/network still worked), so curl substituted for click-testing from
+      T11.2 onward. All quality gates clean at close: 63 backend tests +
+      ruff + mypy + frontend tsc. Phase 11 CLOSED 2026-07-30.
+
+---
+
 ## Deferral list — FINAL STATE at v1 close
 1. OCR fallback — **deferred** (needs_ocr path stops cleanly; trigger = first real
    scanned resume; install = winget tesseract + pytesseract)

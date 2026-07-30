@@ -208,3 +208,41 @@ Dockerfile sketch).
   ticked; deferral list final state recorded.
 
 ### CHECKPOINT C10 — final commit; project v1 closed.
+
+---
+
+## Phase 11 — Gap-closing pass (box ~3h, SPEC §14)
+
+Opened after v1 close and merge to `main`. Three honest gaps from
+docs/v1-summary.md, closed as one small pinned increment before any "big upgrade."
+`emotional_support` was considered and dropped — it already shipped in Phase 6.
+
+### T11.1 Chat history re-render (35m)
+`GET /api/conversations/{id}/messages` route + `MessageOut` response (repository
+methods already exist on both implementations); client-side `conversationId`
+persistence + fetch-on-mount hydration in `ChatWindow.tsx`.
+- **AC:** reload mid-conversation → prior messages re-render in order, no duplicate
+  send; zero-message conversation still mounts cleanly.
+
+### T11.2 `application_track` promotion (70m)
+`JobRepository` + `ApplicationRepository` Protocols + Postgres/in-memory impls
+(neither exists yet); `CapabilityContext` gains `jobs`/`applications`; capability
+body rewritten per the resume_store pattern; intent builder registered in
+`registry.py`. **Design (approved):** no job dedup — always create a new `Job`
+unless the agent passes back a known `application_id`; real matching is
+`job_search_match`'s job, not this task's.
+- **AC:** "I applied to X for role Y" → one approval → Job + Application +
+  ApplicationEvent persisted, audit row present; a follow-up turn with the returned
+  `application_id` appends an event instead of creating a duplicate Job/Application.
+
+### T11.3 OCR fallback (65m)
+Tesseract system binary (winget) + `pytesseract`/`Pillow` deps; new
+`ingestion/ocr.py`; wired into `pipeline.py`'s `needs_ocr` branch in place of the
+clean stop.
+- **AC:** synthetic scanned fixture reaches `stored` via OCR,
+  `extraction_method=ocr` visible; missing-binary case fails loudly (structured
+  error), not a crash.
+
+### CHECKPOINT C11
+Demo all three live → commit → update progress pointer. Pause for scope
+reconsideration before any "big upgrade" work.
