@@ -22,11 +22,14 @@ actual time vs. box at each checkpoint. Deferral list state lives at the bottom.
       Amadeus DB lives on host port 5433.)
 
 ## Phase 5 — Document ingestion (150m)
-- [ ] T5.1 Upload endpoint: validate, dedupe, BlobStore, document row (40m)
-- [ ] T5.2 pdfplumber extraction + scan detection → needs_ocr (30m)
-- [ ] T5.3 LLM decomposition → typed credentials, atomic, status transitions (50m)
-- [ ] T5.4 Upload UI + status display (30m)
-- [ ] CHECKPOINT C5: commit, pointer update — actual: ___m
+- [x] T5.1 Upload endpoint: validate, dedupe, BlobStore, document row (40m)
+- [x] T5.2 pdfplumber extraction + scan detection → needs_ocr (30m)
+- [x] T5.3 LLM decomposition → typed credentials, atomic, status transitions (50m)
+- [x] T5.4 Upload UI + status display (30m)
+- [x] CHECKPOINT C5: commit, pointer update — actual: ~115m (under box).
+      Verified live in browser: upload → stored, 5 typed credentials; scanned
+      PDF → clean needs_ocr stop. KNOWN ISSUE → P7: integration tests pollute
+      the dev DB with fixture rows; needs a dedicated amadeus_test database.
 
 ## Phase 6 — Capabilities + approval gate (90m)
 - [ ] T6.1 ApprovalGate: can_use_tool, intent string, SSE event, audit rows (40m)
