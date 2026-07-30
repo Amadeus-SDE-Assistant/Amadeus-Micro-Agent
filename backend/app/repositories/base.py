@@ -65,6 +65,8 @@ class DocumentRepository(Protocol):
 
     async def get_by_sha256(self, sha256: str) -> DocumentOut | None: ...
 
+    async def get_by_id(self, document_id: uuid.UUID) -> DocumentOut | None: ...
+
     async def set_status(
         self,
         document_id: uuid.UUID,

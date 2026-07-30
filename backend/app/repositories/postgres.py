@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.db import session_scope
-from app.models import Conversation, Credential, Document, Message
+from app.models import Candidate, Conversation, Credential, Document, Message
 from app.repositories.base import (
     CredentialIn,
     CredentialOut,
@@ -121,6 +121,21 @@ class PgDocumentRepository:
                 error=row.error,
             )
 
+    async def get_by_id(self, document_id: uuid.UUID) -> DocumentOut | None:
+        async with session_scope(self._factory) as session:
+            row = await session.get(Document, document_id)
+            if row is None:
+                return None
+            return DocumentOut(
+                id=row.id,
+                kind=row.kind,
+                uri=row.uri,
+                sha256=row.sha256,
+                status=row.status,
+                extraction_method=row.extraction_method,
+                error=row.error,
+            )
+
     async def set_status(
         self,
         document_id: uuid.UUID,
@@ -137,3 +152,17 @@ class PgDocumentRepository:
             if extraction_method is not None:
                 row.extraction_method = extraction_method
             row.error = error
+
+
+async def ensure_default_candidate(factory: async_sessionmaker[AsyncSession]) -> uuid.UUID:
+    """v1 is single-user: one implicit candidate owns everything (SPEC §12 q2)."""
+    async with session_scope(factory) as session:
+        existing = await session.scalar(
+            select(Candidate).where(Candidate.name == "default")
+        )
+        if existing is not None:
+            return existing.id
+        row = Candidate(name="default", contact={})
+        session.add(row)
+        await session.flush()
+        return row.id

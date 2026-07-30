@@ -10,8 +10,15 @@ from app.agent.service import AgentService
 from app.config import get_settings
 from app.db import check_db, create_engine, create_session_factory
 from app.logging_setup import configure_logging, log_extra, request_id_var
-from app.repositories.postgres import PgConversationRepository
+from app.repositories.blob_fs import FsBlobStore
+from app.repositories.postgres import (
+    PgConversationRepository,
+    PgCredentialRepository,
+    PgDocumentRepository,
+    ensure_default_candidate,
+)
 from app.routes.chat import router as chat_router
+from app.routes.documents import router as documents_router
 
 logger = logging.getLogger("app")
 
@@ -23,6 +30,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.engine = create_engine(settings)
     app.state.session_factory = create_session_factory(app.state.engine)
     app.state.conversations = PgConversationRepository(app.state.session_factory)
+    app.state.documents = PgDocumentRepository(app.state.session_factory)
+    app.state.credentials = PgCredentialRepository(app.state.session_factory)
+    app.state.blobs = FsBlobStore(settings.data_dir / "blobs")
+    app.state.default_candidate_id = await ensure_default_candidate(
+        app.state.session_factory
+    )
     yield
     await app.state.agent_service.shutdown()
     await app.state.engine.dispose()
@@ -33,6 +46,7 @@ def create_app() -> FastAPI:
     configure_logging(settings.log_level)
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
     app.include_router(chat_router)
+    app.include_router(documents_router)
 
     app.add_middleware(
         CORSMiddleware,

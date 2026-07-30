@@ -73,6 +73,9 @@ class MemoryDocumentRepository:
     async def get_by_sha256(self, sha256: str) -> DocumentOut | None:
         return next((r for r in self._rows.values() if r.sha256 == sha256), None)
 
+    async def get_by_id(self, document_id: uuid.UUID) -> DocumentOut | None:
+        return self._rows.get(document_id)
+
     async def set_status(
         self,
         document_id: uuid.UUID,
