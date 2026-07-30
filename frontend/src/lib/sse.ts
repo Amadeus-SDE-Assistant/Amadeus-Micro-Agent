@@ -1,11 +1,18 @@
 // SSE-over-fetch client: EventSource can't POST, so we parse the stream by hand.
 
-export type AgentEventType = "text" | "tool_use" | "done" | "error";
+export type AgentEventType =
+  | "text"
+  | "tool_use"
+  | "approval_request"
+  | "done"
+  | "error";
 
 export interface AgentEvent {
   type: AgentEventType;
   text?: string | null;
   tool_name?: string | null;
+  approval_id?: string | null;
+  intent?: string | null;
   meta?: Record<string, unknown> | null;
 }
 

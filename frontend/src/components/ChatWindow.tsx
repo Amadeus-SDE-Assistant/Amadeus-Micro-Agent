@@ -36,6 +36,15 @@ export function ChatWindow() {
             ...prev,
             { role: "system", text: `Using capability: ${event.tool_name ?? "?"}` },
           ]);
+        } else if (event.type === "approval_request") {
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "approval",
+              text: event.intent ?? "The agent wants to perform a write action.",
+              approvalId: event.approval_id ?? "",
+            },
+          ]);
         } else if (event.type === "error") {
           setMessages((prev) => [
             ...prev,
@@ -56,10 +65,33 @@ export function ChatWindow() {
     }
   }
 
+  async function decide(approvalId: string, decision: "approved" | "denied") {
+    // Mark locally first so the buttons can't double-fire.
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.role === "approval" && m.approvalId === approvalId && !m.decision
+          ? { ...m, decision }
+          : m,
+      ),
+    );
+    try {
+      await fetch(`/api/approvals/${approvalId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision }),
+      });
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: "system", text: "Error: could not deliver your decision." },
+      ]);
+    }
+  }
+
   return (
     <main>
       <h1>Amadeus</h1>
-      <MessageList messages={messages} busy={busy} />
+      <MessageList messages={messages} busy={busy} onDecide={(id, d) => void decide(id, d)} />
       <form
         onSubmit={(e) => {
           e.preventDefault();

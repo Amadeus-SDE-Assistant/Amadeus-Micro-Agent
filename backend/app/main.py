@@ -6,17 +6,21 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.agent.approvals import ApprovalGate
 from app.agent.service import AgentService
+from app.capabilities.context import CapabilityContext, set_capability_context
 from app.config import get_settings
 from app.db import check_db, create_engine, create_session_factory
 from app.logging_setup import configure_logging, log_extra, request_id_var
 from app.repositories.blob_fs import FsBlobStore
 from app.repositories.postgres import (
+    PgApprovalRepository,
     PgConversationRepository,
     PgCredentialRepository,
     PgDocumentRepository,
     ensure_default_candidate,
 )
+from app.routes.approvals import router as approvals_router
 from app.routes.chat import router as chat_router
 from app.routes.documents import router as documents_router
 
@@ -26,7 +30,6 @@ logger = logging.getLogger("app")
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
-    app.state.agent_service = AgentService()
     app.state.engine = create_engine(settings)
     app.state.session_factory = create_session_factory(app.state.engine)
     app.state.conversations = PgConversationRepository(app.state.session_factory)
@@ -36,6 +39,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.default_candidate_id = await ensure_default_candidate(
         app.state.session_factory
     )
+    set_capability_context(
+        CapabilityContext(
+            credentials=app.state.credentials,
+            candidate_id=app.state.default_candidate_id,
+        )
+    )
+    app.state.approval_gate = ApprovalGate(
+        PgApprovalRepository(app.state.session_factory),
+        timeout_seconds=settings.approval_timeout_seconds,
+    )
+    app.state.agent_service = AgentService(gate=app.state.approval_gate)
     yield
     await app.state.agent_service.shutdown()
     await app.state.engine.dispose()
@@ -47,6 +61,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
     app.include_router(chat_router)
     app.include_router(documents_router)
+    app.include_router(approvals_router)
 
     app.add_middleware(
         CORSMiddleware,

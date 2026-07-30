@@ -19,7 +19,7 @@ def app_with_fake(
     app = create_app()
     # ASGITransport doesn't run lifespan; inject service + repo directly.
     app.state.agent_service = AgentService(
-        make_settings(str(tmp_path)), client_factory=lambda s: fake
+        make_settings(str(tmp_path)), client_factory=lambda s, cid: fake
     )
     app.state.conversations = conversations or MemoryConversationRepository()
     return app

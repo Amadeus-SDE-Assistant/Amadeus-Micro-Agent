@@ -77,6 +77,18 @@ class DocumentRepository(Protocol):
     ) -> None: ...
 
 
+class ApprovalRepository(Protocol):
+    """Audit trail for every write decision (SPEC §10, §11)."""
+
+    async def create(
+        self, tool_name: str, intent: str, args: dict[str, Any]
+    ) -> uuid.UUID: ...
+
+    async def decide(self, approval_id: uuid.UUID, decision: str) -> bool:
+        """Record a decision; False if unknown or already decided."""
+        ...
+
+
 class BlobStore(Protocol):
     async def put(self, data: bytes, suggested_name: str) -> str:
         """Store bytes, return a URI."""

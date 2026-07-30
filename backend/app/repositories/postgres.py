@@ -1,13 +1,14 @@
 """Postgres implementations of the repository protocols."""
 
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.db import session_scope
-from app.models import Candidate, Conversation, Credential, Document, Message
+from app.models import Approval, Candidate, Conversation, Credential, Document, Message
 from app.repositories.base import (
     CredentialIn,
     CredentialOut,
@@ -152,6 +153,29 @@ class PgDocumentRepository:
             if extraction_method is not None:
                 row.extraction_method = extraction_method
             row.error = error
+
+
+class PgApprovalRepository:
+    def __init__(self, factory: async_sessionmaker[AsyncSession]) -> None:
+        self._factory = factory
+
+    async def create(
+        self, tool_name: str, intent: str, args: dict[str, Any]
+    ) -> uuid.UUID:
+        async with session_scope(self._factory) as session:
+            row = Approval(tool_name=tool_name, intent=intent, args=args)
+            session.add(row)
+            await session.flush()
+            return row.id
+
+    async def decide(self, approval_id: uuid.UUID, decision: str) -> bool:
+        async with session_scope(self._factory) as session:
+            row = await session.get(Approval, approval_id)
+            if row is None or row.decision is not None:
+                return False
+            row.decision = decision
+            row.decided_at = datetime.now(UTC)
+            return True
 
 
 async def ensure_default_candidate(factory: async_sessionmaker[AsyncSession]) -> uuid.UUID:

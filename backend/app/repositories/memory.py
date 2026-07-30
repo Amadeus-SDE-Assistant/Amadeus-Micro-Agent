@@ -94,6 +94,27 @@ class MemoryDocumentRepository:
         )
 
 
+class MemoryApprovalRepository:
+    def __init__(self) -> None:
+        self.rows: dict[uuid.UUID, dict[str, Any]] = {}
+
+    async def create(
+        self, tool_name: str, intent: str, args: dict[str, Any]
+    ) -> uuid.UUID:
+        approval_id = uuid.uuid4()
+        self.rows[approval_id] = {
+            "tool_name": tool_name, "intent": intent, "args": args, "decision": None,
+        }
+        return approval_id
+
+    async def decide(self, approval_id: uuid.UUID, decision: str) -> bool:
+        row = self.rows.get(approval_id)
+        if row is None or row["decision"] is not None:
+            return False
+        row["decision"] = decision
+        return True
+
+
 class MemoryBlobStore:
     def __init__(self) -> None:
         self._blobs: dict[str, bytes] = {}

@@ -58,7 +58,7 @@ async def collect(service: AgentService, cid: str, text: str) -> list[AgentEvent
 
 async def test_happy_path_streams_text_and_done(tmp_path: Any) -> None:
     fake = FakeClient(script=[assistant_text("hello"), result_ok()])
-    service = AgentService(make_settings(str(tmp_path)), client_factory=lambda s: fake)
+    service = AgentService(make_settings(str(tmp_path)), client_factory=lambda s, cid: fake)
     events = await collect(service, "c1", "hi")
     assert [e.type for e in events] == [AgentEventType.TEXT, AgentEventType.DONE]
     assert events[0].text == "hello"
@@ -69,7 +69,7 @@ async def test_failure_yields_error_event_and_recovers_with_fresh_client(tmp_pat
     clients = [FakeClient(fail=RuntimeError("boom")),
                FakeClient(script=[assistant_text("recovered"), result_ok()])]
     service = AgentService(
-        make_settings(str(tmp_path)), client_factory=lambda s: clients.pop(0)
+        make_settings(str(tmp_path)), client_factory=lambda s, cid: clients.pop(0)
     )
 
     first = await collect(service, "c1", "hi")
@@ -86,7 +86,7 @@ async def test_failure_yields_error_event_and_recovers_with_fresh_client(tmp_pat
 async def test_hang_hits_timeout_and_yields_error(tmp_path: Any) -> None:
     fake = FakeClient(hang_seconds=2.0)
     service = AgentService(
-        make_settings(str(tmp_path), timeout=0.2), client_factory=lambda s: fake
+        make_settings(str(tmp_path), timeout=0.2), client_factory=lambda s, cid: fake
     )
     events = await collect(service, "c1", "hi")
     assert [e.type for e in events] == [AgentEventType.ERROR]
