@@ -6,10 +6,10 @@ import uuid
 
 import pytest
 
-from app.config import get_settings
-from app.db import create_engine, create_session_factory, session_scope
+from app.db import session_scope
 from app.models import Candidate
 from app.repositories.postgres import (
+    PgApprovalRepository,
     PgConversationRepository,
     PgCredentialRepository,
     PgDocumentRepository,
@@ -21,13 +21,6 @@ from tests.unit.test_repositories import (
 )
 
 pytestmark = pytest.mark.integration
-
-
-@pytest.fixture
-async def factory():  # type: ignore[no-untyped-def]
-    engine = create_engine(get_settings())
-    yield create_session_factory(engine)
-    await engine.dispose()
 
 
 async def make_candidate(factory) -> uuid.UUID:  # type: ignore[no-untyped-def]
@@ -50,3 +43,13 @@ async def test_pg_credential_contract(factory) -> None:  # type: ignore[no-untyp
 async def test_pg_document_contract(factory) -> None:  # type: ignore[no-untyped-def]
     candidate_id = await make_candidate(factory)
     await assert_document_contract(PgDocumentRepository(factory), candidate_id)
+
+
+async def test_pg_approval_contract(factory) -> None:  # type: ignore[no-untyped-def]
+    repo = PgApprovalRepository(factory)
+    approval_id = await repo.create(
+        "mcp__jobseeker__resume_store", "Save your resume?", {"resume_text": "x"}
+    )
+    assert await repo.decide(approval_id, "approved") is True
+    assert await repo.decide(approval_id, "denied") is False  # already decided
+    assert await repo.decide(uuid.uuid4(), "approved") is False  # unknown
