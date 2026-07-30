@@ -55,8 +55,9 @@ actual time vs. box at each checkpoint. Deferral list state lives at the bottom.
       recorded in review notes
 
 ## Phase 9 — UI pass (60m)
-- [ ] /impeccable init → PRODUCT.md
-- [ ] /impeccable polish on chat + upload + approval surfaces
+- [x] /impeccable init → PRODUCT.md (named-character brand, WCAG AA floor)
+- [x] /impeccable polish on chat + upload + approval surfaces — actual ~55m,
+      verified desktop + mobile with full chat→approval→stored path
 
 ## Phase 10 — Ship docs (90m)
 - [ ] README verified-by-clean-run
