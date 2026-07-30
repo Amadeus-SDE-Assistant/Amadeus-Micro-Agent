@@ -42,9 +42,11 @@ actual time vs. box at each checkpoint. Deferral list state lives at the bottom.
       and deny paths both verified live with audit rows.
 
 ## Phase 7 — Evals + tests (75m)
-- [ ] T7.1 Unit + integration suites per SPEC §9 (35m)
-- [ ] T7.2 Routing eval harness, golden set, ≥80% (40m)
-- [ ] CHECKPOINT C7: commit, pointer update — actual: ___m
+- [x] T7.1 Unit + integration suites per SPEC §9 (35m) — incl. dedicated
+      amadeus_test DB; dev-DB pollution purged (P5 known issue closed)
+- [x] T7.2 Routing eval harness, golden set, ≥80% (40m) — 94% (15/16) first
+      run, $0.22, 122s; the one miss was a mislabeled golden case
+- [x] CHECKPOINT C7: commit, pointer update — actual: ~65m (under box)
 
 ## Phase 8 — Review (60m)
 - [ ] /code-review since ec59c70; fix or waive findings
