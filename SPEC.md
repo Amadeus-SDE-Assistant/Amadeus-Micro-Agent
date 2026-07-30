@@ -243,13 +243,15 @@ Vector columns are created but unpopulated in v1 (deferral item 4).
 
 ```bash
 # Preflight
-claude --version                  # SDK requires the CLI
-docker compose up -d db           # Postgres on :5432
+docker compose up -d db           # Postgres on host :5433 (P10: 5432 was taken;
+                                  # the SDK bundles its own CLI — no claude install)
 
 # Backend
 uv sync                           # or: pip install -e .
 uv run alembic upgrade head       # schema
-uv run fastapi dev app/main.py    # :8000
+uv run python run.py              # :8000 (P10 amendment: fastapi dev/--reload are
+                                  # unusable — the SDK subprocess needs the Proactor
+                                  # loop; see ADR-0001)
 
 # Frontend
 npm install
@@ -473,10 +475,13 @@ much and should be split.
 
 ## 13. Approval
 
-- [ ] Objective and definition of done
-- [ ] Budget reality and binding cut list
-- [ ] Architecture and key decisions
-- [ ] Capability roster and stub contract
-- [ ] Data model
-- [ ] Testing strategy
-- [ ] Boundaries
+- [x] Objective and definition of done — all 5 DoD items demonstrated live
+      (C3 stream, C5 ingestion, C6 approvals, C7 evals 94%, C8 reliability checks)
+- [x] Budget reality and binding cut list — final actuals in tasks/todo.md
+- [x] Architecture and key decisions — as built; deviations carry P8/P10 amendments
+- [x] Capability roster and stub contract — 5 registered, 1 real, 4 stubs marked
+- [x] Data model — migrated, conformance-tested, audit-linked
+- [x] Testing strategy — 51 unit + 4 integration + routing eval ≥80% (94%)
+- [x] Boundaries — approval gate verified approve/deny/expire; audit rows live
+
+v1 closed 2026-07-30 at checkpoint C10.

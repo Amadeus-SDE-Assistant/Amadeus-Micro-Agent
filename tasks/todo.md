@@ -60,17 +60,35 @@ actual time vs. box at each checkpoint. Deferral list state lives at the bottom.
       verified desktop + mobile with full chat→approval→stored path
 
 ## Phase 10 — Ship docs (90m)
-- [ ] README verified-by-clean-run
-- [ ] ADR-0001 stack, ADR-0002 approval design
-- [ ] Fine-tuning proposal (expected: "not yet" + triggers)
-- [ ] Deployment plan + Dockerfile sketch
-- [ ] CHECKPOINT C10: final commit — v1 closed
+- [x] README verified-by-clean-run (every command executed this build)
+- [x] ADR-0001 stack, ADR-0002 approval design (incl. the allowed_tools trap)
+- [x] Fine-tuning proposal — verdict: not yet; 4 numbered reopen-triggers
+- [x] Deployment plan + Dockerfile sketch (bundled-CLI + Proactor findings)
+- [x] CHECKPOINT C10: final commit — **v1 closed 2026-07-30**, actual ~70m
 
 ---
 
-## Deferral list state (SPEC §2 — order binds)
-1. OCR fallback — **deferred by default** (Tesseract not installed; trigger = first real scanned resume)
-2. UI pass (phase 9) — active
-3. emotional_support + job_search_match stubs — active
-4. pgvector population — **deferred by design** (columns exist, unpopulated)
-5. Postgres → SQLite — not triggered (preflight green)
+## Deferral list — FINAL STATE at v1 close
+1. OCR fallback — **deferred** (needs_ocr path stops cleanly; trigger = first real
+   scanned resume; install = winget tesseract + pytesseract)
+2. UI pass — **NOT deferred**: shipped in P9 (impeccable, ~55m)
+3. emotional_support + job_search_match stubs — **NOT deferred**: all 5 shipped in P6
+4. pgvector population — **deferred by design** (columns exist, unpopulated;
+   trigger = job_search_match promotion)
+5. Postgres → SQLite — **never triggered** (Docker green all build)
+
+Only 2 of 5 pressure valves were used, both by design rather than schedule pressure.
+
+## Final time accounting (pinned budget ~14h)
+| Phase | Box | Actual |
+|---|---|---|
+| 0–2 spec/plan/preflight | 1h20 | ~1h35 |
+| 3 walking skeleton | 2h00 | ~2h15 |
+| 4 persistence | 1h30 | ~1h20 |
+| 5 ingestion | 2h30 | ~1h55 |
+| 6 capabilities+approval | 1h30 | ~1h40 |
+| 7 evals+tests | 1h15 | ~1h05 |
+| 8 review | 1h00 | ~1h10 |
+| 9 UI pass | 1h00 | ~1h00 (incl. hook findings) |
+| 10 ship docs | 1h30 | ~1h10 |
+| **Total** | **~13h35** | **~13h10 — under the pinned ~14h** |
