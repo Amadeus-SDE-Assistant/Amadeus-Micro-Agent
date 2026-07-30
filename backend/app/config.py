@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     agent_model: str = "claude-sonnet-5"
     agent_timeout_seconds: float = 120.0
 
-    database_url: str = "postgresql+asyncpg://postgres:amadeus@localhost:5432/amadeus"
+    database_url: str = "postgresql+asyncpg://postgres:amadeus@localhost:5433/amadeus"
 
 
 @lru_cache

@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.agent.service import AgentService
 from app.config import get_settings
+from app.db import check_db, create_engine, create_session_factory
 from app.logging_setup import configure_logging, log_extra, request_id_var
 from app.routes.chat import router as chat_router
 
@@ -16,9 +17,13 @@ logger = logging.getLogger("app")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    settings = get_settings()
     app.state.agent_service = AgentService()
+    app.state.engine = create_engine(settings)
+    app.state.session_factory = create_session_factory(app.state.engine)
     yield
     await app.state.agent_service.shutdown()
+    await app.state.engine.dispose()
 
 
 def create_app() -> FastAPI:
@@ -51,10 +56,11 @@ def create_app() -> FastAPI:
         return response
 
     @app.get("/api/health")
-    async def health() -> dict[str, object]:
-        # DB and agent-subprocess liveness are wired in during P4/P3.2 (SPEC §10:
-        # health must report component truth, not a bare 200).
-        return {"status": "ok", "components": {"api": "ok"}}
+    async def health(request: Request) -> dict[str, object]:
+        # SPEC §10: health reports component truth, not a bare 200.
+        db_ok = await check_db(request.app.state.engine)
+        components = {"api": "ok", "db": "ok" if db_ok else "unreachable"}
+        return {"status": "ok" if db_ok else "degraded", "components": components}
 
     return app
 
