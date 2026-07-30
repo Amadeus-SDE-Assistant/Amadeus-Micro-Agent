@@ -69,7 +69,11 @@ actual time vs. box at each checkpoint. Deferral list state lives at the bottom.
 ---
 
 ## Phase 11 — Gap-closing pass (~3h, SPEC §14)
-- [ ] T11.1 Chat history re-render: GET route + client persistence + hydrate (35m)
+- [x] T11.0 (unplanned, P0): SDK built-in tools (Bash/Read/Write/Edit) were
+      reachable with zero approval — found live while verifying T11.1. Fixed
+      with `tools=[]`; regression test confirmed RED before GREEN. Commit `1b5add5`.
+- [x] T11.1 Chat history re-render: GET route + client persistence + hydrate (35m)
+      — verified live (reload mid-conversation, no dupes). Commit `98e417e`.
 - [ ] T11.2 `application_track` promotion: Job + Application repos, context wiring,
       capability rewrite, intent builder — no-dedup design approved 2026-07-30 (70m)
 - [ ] T11.3 OCR fallback: Tesseract install, ocr.py, pipeline wiring (65m)
