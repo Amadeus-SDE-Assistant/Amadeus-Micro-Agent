@@ -15,30 +15,27 @@ export function ChatWindow() {
     setBusy(true);
     setMessages((prev) => [...prev, { role: "user", text }]);
 
-    let assistantIndex = -1;
     try {
       for await (const event of streamChat(conversationId.current, text)) {
         if (event.type === "text" && event.text) {
           const chunk = event.text;
+          // Pure updater (StrictMode double-invokes it): append to a
+          // still-streaming assistant tail, otherwise start a new message.
           setMessages((prev) => {
-            const next = [...prev];
-            if (assistantIndex === -1) {
-              assistantIndex = next.length;
-              next.push({ role: "assistant", text: chunk });
-            } else {
-              next[assistantIndex] = {
-                ...next[assistantIndex],
-                text: next[assistantIndex].text + chunk,
-              };
+            const last = prev[prev.length - 1];
+            if (last && last.role === "assistant" && last.streaming) {
+              return [
+                ...prev.slice(0, -1),
+                { ...last, text: last.text + chunk },
+              ];
             }
-            return next;
+            return [...prev, { role: "assistant", text: chunk, streaming: true }];
           });
         } else if (event.type === "tool_use") {
           setMessages((prev) => [
             ...prev,
             { role: "system", text: `Using capability: ${event.tool_name ?? "?"}` },
           ]);
-          assistantIndex = -1;
         } else if (event.type === "error") {
           setMessages((prev) => [
             ...prev,
@@ -52,6 +49,9 @@ export function ChatWindow() {
         { role: "system", text: "Error: connection to the server was lost." },
       ]);
     } finally {
+      setMessages((prev) =>
+        prev.map((m) => (m.streaming ? { ...m, streaming: false } : m)),
+      );
       setBusy(false);
     }
   }

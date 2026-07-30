@@ -4,11 +4,14 @@ Working checklist mirroring [plan.md](plan.md). Check items off as they land; re
 actual time vs. box at each checkpoint. Deferral list state lives at the bottom.
 
 ## Phase 3 — Walking skeleton (120m)
-- [ ] T3.1 Backend scaffold: FastAPI, config, JSON logging, /api/health (30m)
-- [ ] T3.2 AgentService + registry + strategy_convo stub + error envelope (45m)
-- [ ] T3.3 SSE chat endpoint POST /api/chat (20m)
-- [ ] T3.4 React shell: ChatWindow, sse.ts, proxy (25m)
-- [ ] CHECKPOINT C3: demo, commit, pointer update — actual: ___m
+- [x] T3.1 Backend scaffold: FastAPI, config, JSON logging, /api/health (30m)
+- [x] T3.2 AgentService + registry + strategy_convo stub + error envelope (45m)
+- [x] T3.3 SSE chat endpoint POST /api/chat (20m)
+- [x] T3.4 React shell: ChatWindow, sse.ts, proxy (25m)
+- [x] CHECKPOINT C3: demo, commit, pointer update — actual: ~135m (+12% over box;
+      under the 25% escalation threshold, no deferral. Overrun causes: Windows
+      event-loop discovery, SSE CRLF parser bug, StrictMode purity bug — all
+      found by the live browser demo, which is the point of the checkpoint.)
 
 ## Phase 4 — Persistence (90m)
 - [ ] T4.1 docker-compose + DB wiring + truthful health (15m)

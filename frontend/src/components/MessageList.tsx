@@ -1,6 +1,8 @@
 export interface ChatMessage {
   role: "user" | "assistant" | "system";
   text: string;
+  /** True while this assistant message is still receiving stream chunks. */
+  streaming?: boolean;
 }
 
 export function MessageList({ messages, busy }: { messages: ChatMessage[]; busy: boolean }) {

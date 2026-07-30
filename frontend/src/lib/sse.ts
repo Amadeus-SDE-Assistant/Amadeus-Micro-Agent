@@ -31,12 +31,12 @@ export async function* streamChat(
     const { done, value } = await reader.read();
     if (done) break;
     buffer += value;
-    // SSE frames are separated by a blank line.
-    const frames = buffer.split("\n\n");
+    // SSE frames are separated by a blank line; servers may use \n or \r\n.
+    const frames = buffer.split(/\r?\n\r?\n/);
     buffer = frames.pop() ?? "";
     for (const frame of frames) {
       const dataLine = frame
-        .split("\n")
+        .split(/\r?\n/)
         .find((line) => line.startsWith("data:"));
       if (!dataLine) continue;
       try {
