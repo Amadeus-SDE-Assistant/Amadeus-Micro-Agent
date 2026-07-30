@@ -18,6 +18,7 @@ async def raw_llm(system: str, user: str) -> str:
         system_prompt=system,
         max_turns=1,
         allowed_tools=[],
+        max_budget_usd=settings.stub_max_budget_usd,
     )
     parts: list[str] = []
     async with asyncio.timeout(settings.agent_timeout_seconds):

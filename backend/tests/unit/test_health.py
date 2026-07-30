@@ -1,5 +1,6 @@
 import json
 import logging
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -18,6 +19,7 @@ def app():  # type: ignore[no-untyped-def]
     application.state.engine = create_engine(
         Settings(database_url="postgresql+asyncpg://x:x@localhost:59999/x")  # type: ignore[call-arg]
     )
+    application.state.agent_service = SimpleNamespace(active_sessions=0)
     return application
 
 

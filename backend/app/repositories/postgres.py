@@ -77,19 +77,34 @@ class PgCredentialRepository:
                 .where(Credential.candidate_id == candidate_id)
                 .order_by(Credential.created_at)
             )
+            # model_validate re-validates kind against the Literal at the boundary.
             return [
-                CredentialOut(
-                    id=r.id,
-                    candidate_id=r.candidate_id,
-                    kind=r.kind,
-                    title=r.title,
-                    org=r.org,
-                    start_date=r.start_date,
-                    end_date=r.end_date,
-                    body=r.body,
+                CredentialOut.model_validate(
+                    {
+                        "id": r.id,
+                        "candidate_id": r.candidate_id,
+                        "kind": r.kind,
+                        "title": r.title,
+                        "org": r.org,
+                        "start_date": r.start_date,
+                        "end_date": r.end_date,
+                        "body": r.body,
+                    }
                 )
                 for r in rows
             ]
+
+
+def _document_out(row: Document) -> DocumentOut:
+    return DocumentOut(
+        id=row.id,
+        kind=row.kind,
+        uri=row.uri,
+        sha256=row.sha256,
+        status=row.status,
+        extraction_method=row.extraction_method,
+        error=row.error,
+    )
 
 
 class PgDocumentRepository:
@@ -103,39 +118,17 @@ class PgDocumentRepository:
             row = Document(candidate_id=candidate_id, kind=kind, uri=uri, sha256=sha256)
             session.add(row)
             await session.flush()
-            return DocumentOut(
-                id=row.id, kind=row.kind, uri=row.uri, sha256=row.sha256, status=row.status
-            )
+            return _document_out(row)
 
     async def get_by_sha256(self, sha256: str) -> DocumentOut | None:
         async with session_scope(self._factory) as session:
             row = await session.scalar(select(Document).where(Document.sha256 == sha256))
-            if row is None:
-                return None
-            return DocumentOut(
-                id=row.id,
-                kind=row.kind,
-                uri=row.uri,
-                sha256=row.sha256,
-                status=row.status,
-                extraction_method=row.extraction_method,
-                error=row.error,
-            )
+            return _document_out(row) if row is not None else None
 
     async def get_by_id(self, document_id: uuid.UUID) -> DocumentOut | None:
         async with session_scope(self._factory) as session:
             row = await session.get(Document, document_id)
-            if row is None:
-                return None
-            return DocumentOut(
-                id=row.id,
-                kind=row.kind,
-                uri=row.uri,
-                sha256=row.sha256,
-                status=row.status,
-                extraction_method=row.extraction_method,
-                error=row.error,
-            )
+            return _document_out(row) if row is not None else None
 
     async def set_status(
         self,
@@ -160,10 +153,26 @@ class PgApprovalRepository:
         self._factory = factory
 
     async def create(
-        self, tool_name: str, intent: str, args: dict[str, Any]
+        self,
+        tool_name: str,
+        intent: str,
+        args: dict[str, Any],
+        sdk_session_id: str | None = None,
     ) -> uuid.UUID:
         async with session_scope(self._factory) as session:
-            row = Approval(tool_name=tool_name, intent=intent, args=args)
+            conversation_id: uuid.UUID | None = None
+            if sdk_session_id is not None:
+                conversation_id = await session.scalar(
+                    select(Conversation.id).where(
+                        Conversation.sdk_session_id == sdk_session_id
+                    )
+                )
+            row = Approval(
+                tool_name=tool_name,
+                intent=intent,
+                args=args,
+                conversation_id=conversation_id,
+            )
             session.add(row)
             await session.flush()
             return row.id

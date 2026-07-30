@@ -57,6 +57,22 @@ async def test_duplicate_upload_dedupes() -> None:
     assert len(app.state.pipeline_calls) == 1  # not scheduled again
 
 
+async def test_failed_ingestion_can_retry_by_reupload() -> None:
+    # P8 review finding: dedupe must not permanently block a failed document.
+    app = make_app()
+    data = text_layer_resume_pdf()
+    first = await upload(app, data)
+    doc_id = uuid.UUID(first.json()["document"]["id"])
+    await app.state.documents.set_status(doc_id, "failed", error="boom")
+
+    retry = await upload(app, data)
+    assert retry.json()["deduplicated"] is False
+    assert retry.json()["document"]["id"] == str(doc_id)  # same document, retried
+    assert len(app.state.pipeline_calls) == 2  # pipeline scheduled again
+    stored = await app.state.documents.get_by_id(doc_id)
+    assert stored.status == "uploaded" and stored.error is None
+
+
 async def test_invalid_upload_rejected_422() -> None:
     app = make_app()
     resp = await upload(app, b"MZ definitely not a pdf")

@@ -99,11 +99,16 @@ class MemoryApprovalRepository:
         self.rows: dict[uuid.UUID, dict[str, Any]] = {}
 
     async def create(
-        self, tool_name: str, intent: str, args: dict[str, Any]
+        self,
+        tool_name: str,
+        intent: str,
+        args: dict[str, Any],
+        sdk_session_id: str | None = None,
     ) -> uuid.UUID:
         approval_id = uuid.uuid4()
         self.rows[approval_id] = {
-            "tool_name": tool_name, "intent": intent, "args": args, "decision": None,
+            "tool_name": tool_name, "intent": intent, "args": args,
+            "decision": None, "sdk_session_id": sdk_session_id,
         }
         return approval_id
 

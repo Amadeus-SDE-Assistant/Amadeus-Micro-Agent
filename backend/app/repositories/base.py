@@ -4,13 +4,15 @@ SQLAlchemy entities.
 """
 
 import uuid
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, Field
 
+CredentialKind = Literal["experience", "education", "skill", "project", "certification"]
+
 
 class CredentialIn(BaseModel):
-    kind: str  # experience|education|skill|project|certification
+    kind: CredentialKind
     title: str
     org: str | None = None
     start_date: str | None = None
@@ -81,7 +83,11 @@ class ApprovalRepository(Protocol):
     """Audit trail for every write decision (SPEC §10, §11)."""
 
     async def create(
-        self, tool_name: str, intent: str, args: dict[str, Any]
+        self,
+        tool_name: str,
+        intent: str,
+        args: dict[str, Any],
+        sdk_session_id: str | None = None,
     ) -> uuid.UUID: ...
 
     async def decide(self, approval_id: uuid.UUID, decision: str) -> bool:

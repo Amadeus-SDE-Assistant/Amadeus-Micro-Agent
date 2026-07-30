@@ -1,29 +1,20 @@
-"""Document upload + status endpoints.
+"""Document upload + status endpoints — thin handlers (SPEC §8); orchestration
+lives in app.ingestion.service.
 
-POST /api/documents — validate, dedupe by sha256, store blob + row, then run the
-ingestion pipeline in the background. The user's click is the write consent for
-this path (agent-initiated ingestion goes through the approval gate in P6).
-GET /api/documents/{id} — status polling for the UI, including stored credentials.
+POST /api/documents — the user's click is the write consent for this path
+(agent-initiated ingestion goes through the approval gate instead; SPEC §11).
+GET /api/documents/{id} — status polling for the UI.
 """
 
-import hashlib
-import logging
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from app.ingestion.pipeline import run_pipeline
+from app.ingestion.service import IngestionDeps, credentials_for_document, ingest_upload
 from app.ingestion.validate import ValidationError, validate_upload
-from app.repositories.base import (
-    BlobStore,
-    CredentialOut,
-    CredentialRepository,
-    DocumentOut,
-    DocumentRepository,
-)
-
-logger = logging.getLogger("app.documents")
+from app.repositories.base import CredentialOut, DocumentOut
 
 router = APIRouter()
 
@@ -38,6 +29,15 @@ class DocumentStatusResponse(BaseModel):
     credentials: list[CredentialOut] = []
 
 
+def get_deps(request: Request) -> IngestionDeps:
+    return IngestionDeps(
+        blobs=request.app.state.blobs,
+        documents=request.app.state.documents,
+        credentials=request.app.state.credentials,
+        candidate_id=request.app.state.default_candidate_id,
+    )
+
+
 @router.post("/api/documents", status_code=201)
 async def upload_document(
     file: UploadFile, request: Request, background: BackgroundTasks
@@ -48,42 +48,27 @@ async def upload_document(
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.reason) from exc
 
-    documents: DocumentRepository = request.app.state.documents
-    blobs: BlobStore = request.app.state.blobs
-    credentials: CredentialRepository = request.app.state.credentials
-    candidate_id: uuid.UUID = request.app.state.default_candidate_id
-
-    sha256 = hashlib.sha256(data).hexdigest()
-    existing = await documents.get_by_sha256(sha256)
-    if existing is not None:
-        # SPEC §10 reliability row 4: same file never double-ingests.
-        return UploadResponse(document=existing, deduplicated=True)
-
-    uri = await blobs.put(data, file.filename or "resume.pdf")
-    document = await documents.add(candidate_id, "resume", uri, sha256)
-    runner = getattr(request.app.state, "pipeline_runner", run_pipeline)
-    background.add_task(
-        runner,
-        document.id,
-        candidate_id,
-        uri,
-        blobs=blobs,
-        documents=documents,
-        credentials=credentials,
-    )
-    return UploadResponse(document=document)
+    deps = get_deps(request)
+    result = await ingest_upload(data, file.filename or "resume.pdf", deps)
+    if result.blob_uri is not None:
+        runner = getattr(request.app.state, "pipeline_runner", run_pipeline)
+        background.add_task(
+            runner,
+            result.document.id,
+            deps.candidate_id,
+            result.blob_uri,
+            blobs=deps.blobs,
+            documents=deps.documents,
+            credentials=deps.credentials,
+        )
+    return UploadResponse(document=result.document, deduplicated=result.deduplicated)
 
 
 @router.get("/api/documents/{document_id}")
 async def document_status(document_id: uuid.UUID, request: Request) -> DocumentStatusResponse:
-    documents: DocumentRepository = request.app.state.documents
-    credentials: CredentialRepository = request.app.state.credentials
-    candidate_id: uuid.UUID = request.app.state.default_candidate_id
-
-    # Lookup is by sha in the repo protocol; add a direct-id fetch via listing.
-    all_creds = await credentials.list_for(candidate_id)
-    doc = await documents.get_by_id(document_id)
+    deps = get_deps(request)
+    doc = await deps.documents.get_by_id(document_id)
     if doc is None:
         raise HTTPException(status_code=404, detail="document not found")
-    mine = [c for c in all_creds if c.body.get("source_document") == str(document_id)]
+    mine = await credentials_for_document(deps, document_id)
     return DocumentStatusResponse(document=doc, credentials=mine)

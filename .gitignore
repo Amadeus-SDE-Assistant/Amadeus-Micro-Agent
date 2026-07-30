@@ -16,3 +16,4 @@ dist/
 
 # Runtime data (blobs, local DB volumes) — never commit user data
 data/
+*.tsbuildinfo

@@ -52,7 +52,9 @@ class ApprovalGate:
         if intent is None:
             return PermissionResultAllow()
 
-        approval_id = await self._repo.create(tool_name, intent, args)
+        approval_id = await self._repo.create(
+            tool_name, intent, args, sdk_session_id=conversation_id
+        )
         future: asyncio.Future[str] = asyncio.get_running_loop().create_future()
         self._pending[approval_id] = future
 

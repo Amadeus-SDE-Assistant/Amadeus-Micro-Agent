@@ -230,8 +230,10 @@ approval(id, conversation_id, tool_name, args JSONB, decision, decided_at)
 
 `kind` on `credential` ∈ `experience | education | skill | project | certification`.
 `extraction_method` on `document` ∈ `text_layer | ocr`; `status` ∈ `uploaded | extracted |
-decomposed | failed`. Recording the method matters — OCR output is materially noisier, and
-downstream confidence should reflect that.
+needs_ocr | decomposed | stored | failed` (P8 amendment: `needs_ocr` = clean stop when the
+text layer is absent and OCR is deferred; `stored` = credentials committed). Recording the
+method matters — OCR output is materially noisier, and downstream confidence should
+reflect that.
 `application_event` is the append-only growth table — the "massive state data" driver.
 Vector columns are created but unpopulated in v1 (deferral item 4).
 
@@ -316,8 +318,11 @@ implementation. No business logic in route handlers.
 **TypeScript** — strict mode, no `any`. Function components + hooks. No state library in v1;
 `useState` + `useReducer` suffice. No CSS framework (cut-list item 1).
 
-**General** — every stub marked `# STUB:` with its promotion path. Conventional Commits.
-No secrets in source; `ANTHROPIC_API_KEY` via env only.
+**General** — every stub marked `# STUB:` with its promotion path. Commits are
+descriptive and task-prefixed (`T4.2: …`, `C6: …`) matching tasks/plan.md (P8
+amendment — this replaced Conventional Commits in practice from the first commit;
+recorded rather than rewritten). No secrets in source; `ANTHROPIC_API_KEY` via env
+only (the compose dev DB password is local-only and explicitly not a secret).
 
 ---
 
@@ -408,7 +413,13 @@ in the review notes.
 
 ### Always
 - Ask before **any** write — filesystem, database, or outward-facing. (User decision.)
-- Log every tool invocation and approval decision to the `approval` table.
+  *P8 clarification:* for the REST upload path, the user's explicit upload action is
+  the consent (the UI says so on the control); agent-initiated writes always go
+  through the approval gate. Two entry paths, one guarantee.
+- Log every **write** decision to the `approval` table; log every tool invocation
+  (read or write) to the structured logs. (P8 amendment: the approval table is the
+  write-audit; read-only invocations live in the JSON logs, where they carry
+  request/session ids.)
 - Keep all agent file access inside `./data/`.
 - Depend on repository *protocols*, never concrete implementations.
 - Keep stub contracts stable — promotion changes bodies only.

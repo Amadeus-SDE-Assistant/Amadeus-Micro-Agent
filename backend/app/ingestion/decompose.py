@@ -13,7 +13,6 @@ from app.agent.llm import raw_llm
 from app.agent.prompts import DECOMPOSE_PROMPT
 from app.repositories.base import CredentialIn
 
-_ALLOWED_KINDS = {"experience", "education", "skill", "project", "certification"}
 _adapter = TypeAdapter(list[CredentialIn])
 
 
@@ -22,7 +21,11 @@ class DecompositionError(Exception):
 
 
 def parse_credentials(raw: str) -> list[CredentialIn]:
-    """Parse + validate model output. Separated from the LLM call for cheap tests."""
+    """Parse + validate model output. Separated from the LLM call for cheap tests.
+
+    Kind validity is enforced by CredentialIn.kind's Literal type — invalid kinds
+    fail Pydantic validation directly (SPEC §8: Pydantic at I/O boundaries).
+    """
     cleaned = raw.strip()
     if cleaned.startswith("```"):
         cleaned = cleaned.strip("`")
@@ -31,9 +34,6 @@ def parse_credentials(raw: str) -> list[CredentialIn]:
         credentials = _adapter.validate_python(json.loads(cleaned))
     except (json.JSONDecodeError, ValidationError) as exc:
         raise DecompositionError(f"model output failed validation: {exc}") from exc
-    bad_kinds = {c.kind for c in credentials} - _ALLOWED_KINDS
-    if bad_kinds:
-        raise DecompositionError(f"invalid credential kinds: {sorted(bad_kinds)}")
     if not credentials:
         raise DecompositionError("no credentials found in resume text")
     return credentials

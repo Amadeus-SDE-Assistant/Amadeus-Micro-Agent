@@ -80,6 +80,7 @@ class AgentService:
             # bypasses can_use_tool, which would skip the approval gate.
             allowed_tools=allowed_tool_names(),
             max_turns=8,
+            max_budget_usd=settings.agent_max_budget_usd,
             cwd=str(settings.data_dir),
             can_use_tool=can_use_tool,
         )
@@ -200,6 +201,10 @@ class AgentService:
                 await client.disconnect()
             except Exception:
                 logger.warning("disconnect after failure also failed", exc_info=True)
+
+    @property
+    def active_sessions(self) -> int:
+        return len(self._clients)
 
     async def shutdown(self) -> None:
         for cid in list(self._clients):

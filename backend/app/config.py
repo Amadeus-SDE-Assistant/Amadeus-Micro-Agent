@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     # Model + spend caps (SPEC §10 cost).
     agent_model: str = "claude-sonnet-5"
     agent_timeout_seconds: float = 120.0
+    # Cost caps (SPEC §10): per main agent turn / per stub one-shot call.
+    agent_max_budget_usd: float = 1.00
+    stub_max_budget_usd: float = 0.30
     # Must stay below agent_timeout_seconds: the gate resolves (expired -> deny)
     # before the service's per-gap timeout treats the silence as a hang.
     approval_timeout_seconds: float = 90.0

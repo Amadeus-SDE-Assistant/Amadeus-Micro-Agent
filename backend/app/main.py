@@ -88,9 +88,16 @@ def create_app() -> FastAPI:
 
     @app.get("/api/health")
     async def health(request: Request) -> dict[str, object]:
-        # SPEC §10: health reports component truth, not a bare 200.
+        # SPEC §10: health reports component truth, not a bare 200. The agent
+        # component reports the session pool (an approximation of subprocess
+        # liveness — dead clients are dropped from the pool on failure).
         db_ok = await check_db(request.app.state.engine)
-        components = {"api": "ok", "db": "ok" if db_ok else "unreachable"}
+        service = request.app.state.agent_service
+        components = {
+            "api": "ok",
+            "db": "ok" if db_ok else "unreachable",
+            "agent": f"ok ({service.active_sessions} active sessions)",
+        }
         return {"status": "ok" if db_ok else "degraded", "components": components}
 
     return app
