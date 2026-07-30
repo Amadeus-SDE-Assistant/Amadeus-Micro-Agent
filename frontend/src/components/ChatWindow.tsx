@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { streamChat } from "../lib/sse";
-import { type ChatMessage, MessageList } from "./MessageList";
+import { type ChatMessage, MessageList, friendlyCapability } from "./MessageList";
 
 export function ChatWindow() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -34,7 +34,7 @@ export function ChatWindow() {
         } else if (event.type === "tool_use") {
           setMessages((prev) => [
             ...prev,
-            { role: "system", text: `Using capability: ${event.tool_name ?? "?"}` },
+            { role: "system", text: `· ${friendlyCapability(event.tool_name ?? "?")}` },
           ]);
         } else if (event.type === "approval_request") {
           setMessages((prev) => [
@@ -90,9 +90,9 @@ export function ChatWindow() {
 
   return (
     <main>
-      <h1>Amadeus</h1>
       <MessageList messages={messages} busy={busy} onDecide={(id, d) => void decide(id, d)} />
       <form
+        className="composer"
         onSubmit={(e) => {
           e.preventDefault();
           void send();
@@ -105,7 +105,7 @@ export function ChatWindow() {
           aria-label="Message"
           disabled={busy}
         />
-        <button type="submit" disabled={busy || !input.trim()}>
+        <button type="submit" className="btn-primary" disabled={busy || !input.trim()}>
           Send
         </button>
       </form>

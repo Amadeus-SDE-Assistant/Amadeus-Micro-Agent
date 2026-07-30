@@ -78,12 +78,19 @@ export function UploadPanel() {
     }
   }
 
+  const statusTone =
+    doc?.status === "stored"
+      ? "ok"
+      : doc?.status === "failed" || doc?.status === "needs_ocr"
+        ? "bad"
+        : "busy";
+
   return (
-    <section>
+    <section className="upload">
       <h2>Resume upload</h2>
-      <p>
-        Upload a PDF resume; it will be decomposed into structured credentials and
-        saved. Uploading is your consent to store the extracted data.
+      <p className="lede">
+        Upload a PDF resume and Amadeus will decompose it into structured credentials
+        and save them. Uploading is your consent to store the extracted data.
       </p>
       <input
         ref={inputRef}
@@ -97,11 +104,16 @@ export function UploadPanel() {
         }}
       />
       {uploadError && <p role="alert">Error: {uploadError}</p>}
-      {deduplicated && <p>This exact file was already ingested — nothing new to do.</p>}
+      {deduplicated && (
+        <p className="status ok">
+          <span className="state">Already saved</span> — this exact file was ingested
+          before; nothing new to do.
+        </p>
+      )}
       {doc && (
         <div aria-live="polite">
-          <p>
-            Status: <strong>{doc.status}</strong>
+          <p className={`status ${statusTone}`}>
+            <span className="state">{doc.status.replace("_", " ")}</span>
             {" — "}
             {STATUS_TEXT[doc.status] ?? ""}
             {doc.status === "failed" && doc.error ? ` (${doc.error})` : ""}
@@ -109,11 +121,14 @@ export function UploadPanel() {
           {credentials.length > 0 && (
             <>
               <p>Stored credentials ({credentials.length}):</p>
-              <ul>
+              <ul className="credentials">
                 {credentials.map((c, i) => (
                   <li key={i}>
-                    [{c.kind}] {c.title}
-                    {c.org ? ` — ${c.org}` : ""}
+                    <span className="kind">{c.kind}</span>
+                    <span>
+                      {c.title}
+                      {c.org ? ` — ${c.org}` : ""}
+                    </span>
                   </li>
                 ))}
               </ul>

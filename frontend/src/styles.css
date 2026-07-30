@@ -1,0 +1,357 @@
+/* Amadeus — Operate-mode interface. Warm paper world; the named character lives
+   in the serif wordmark and assistant labels; the approval card is the product's
+   signature moment (consent is the product). WCAG AA floor. */
+
+:root {
+  --bg: #fbf8f3;
+  --surface: #fffdf9;
+  --ink: #221e19;
+  --ink-soft: #55504a;
+  --muted: #6b6459;
+  --line: #e4ddd2;
+  --line-strong: #c9c0b2;
+  --accent: #8c4a2f;
+  --accent-deep: #6f3a24;
+  --accent-wash: #f6ede5;
+  --danger: #a33636;
+  --ok: #2f6b46;
+  --serif: "Fraunces", Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- shell ---------- */
+
+.shell {
+  width: min(44rem, 100% - 2.5rem);
+  margin-inline: auto;
+  padding-block: 1.25rem 4rem;
+  flex: 1;
+}
+
+.masthead {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding-block: 0.5rem 1.5rem;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 2rem;
+}
+
+.wordmark {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.65rem;
+  letter-spacing: -0.01em;
+  color: var(--accent-deep);
+}
+
+.tagline {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* ---------- conversation ---------- */
+
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.msg {
+  max-width: 60ch;
+}
+
+.msg .author {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
+
+.msg.assistant .author {
+  font-family: var(--serif);
+  font-size: 0.95rem;
+  color: var(--accent-deep);
+  letter-spacing: 0;
+}
+
+.msg p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.msg.user {
+  align-self: flex-end;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.9rem;
+}
+
+.msg.user .author {
+  color: var(--ink-soft);
+}
+
+.note {
+  align-self: flex-start;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.note p {
+  margin: 0;
+}
+
+.thinking {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.thinking::after {
+  content: "…";
+  display: inline-block;
+  animation: breathe 1.6s ease-out infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thinking::after {
+    animation: none;
+  }
+}
+
+/* ---------- approval card: the signature moment ---------- */
+
+.approval {
+  border: 1px solid var(--accent);
+  background: var(--accent-wash);
+  border-radius: 0.75rem;
+  padding: 1rem 1.15rem;
+  max-width: 60ch;
+}
+
+.approval .author {
+  display: block;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--accent-deep);
+  margin-bottom: 0.35rem;
+}
+
+.approval p {
+  margin: 0 0 0.75rem;
+}
+
+.approval .decided {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.approval .actions {
+  display: flex;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+/* ---------- controls ---------- */
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 0.55rem;
+  padding: 0.5rem 1.1rem;
+  border: 1px solid transparent;
+  transition: background-color 120ms ease-out, border-color 120ms ease-out;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-deep);
+}
+
+.btn-quiet {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.btn-quiet:hover:not(:disabled) {
+  border-color: var(--ink-soft);
+  background: var(--surface);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-deep);
+  outline-offset: 2px;
+}
+
+/* ---------- composer ---------- */
+
+.composer {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 2rem;
+  position: sticky;
+  bottom: 1rem;
+}
+
+.composer input {
+  flex: 1;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 0.55rem;
+  padding: 0.6rem 0.85rem;
+}
+
+.composer input::placeholder {
+  color: var(--muted);
+}
+
+.composer input:focus-visible {
+  border-color: var(--accent);
+  outline-offset: 0;
+}
+
+/* ---------- upload panel ---------- */
+
+.upload {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.upload h2 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.15rem;
+  margin: 0 0 0.35rem;
+}
+
+.upload .lede {
+  margin: 0 0 1rem;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  max-width: 65ch;
+}
+
+.upload input[type="file"] {
+  font: inherit;
+  color: var(--ink-soft);
+  max-width: 100%;
+}
+
+.upload input[type="file"]::file-selector-button {
+  font: inherit;
+  cursor: pointer;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: 0.55rem;
+  padding: 0.45rem 1rem;
+  margin-right: 0.75rem;
+  transition: border-color 120ms ease-out;
+}
+
+.upload input[type="file"]:hover::file-selector-button {
+  border-color: var(--ink-soft);
+}
+
+.status {
+  margin: 0.9rem 0 0;
+  font-size: 0.95rem;
+}
+
+.status .state {
+  font-weight: 600;
+}
+
+.status.ok .state {
+  color: var(--ok);
+}
+
+.status.bad .state {
+  color: var(--danger);
+}
+
+.status.busy .state {
+  color: var(--accent-deep);
+}
+
+.upload [role="alert"] {
+  margin: 0.9rem 0 0;
+  color: var(--danger);
+}
+
+.credentials {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+  max-width: 60ch;
+}
+
+.credentials li {
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+
+.credentials .kind {
+  flex: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-deep);
+  min-width: 6.5rem;
+}
