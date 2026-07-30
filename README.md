@@ -1,99 +1,115 @@
-# Amadeus Micro Agent
+# Amadeus — a job-search agent that asks before it acts
 
-A multi-capability job-seeking chatbot agent, built architecture-first: a pluggable
-capability registry on the Claude Agent SDK where most capabilities are deliberate
-stubs that promote to real features without touching routing, storage, or the
-frontend. Every agent-initiated write passes a descriptive, human-approved gate with
-a full audit trail.
+Amadeus is a personal job-seeking agent: one chat surface where you can upload a
+resume and watch it decompose into structured credentials, talk through search
+strategy, track applications, and get through the rough days of a search. It's built
+on the Claude Agent SDK — and it **never writes anything without asking you first, in
+plain language**:
 
-**Stack:** React + Vite + TypeScript · FastAPI (Python 3.12+) · Claude Agent SDK ·
-PostgreSQL 16 + pgvector (Docker) · filesystem blob store behind a swap-ready interface.
+> **Amadeus asks permission**
+> *Decompose the resume text you shared (~29 words) into structured credentials and
+> save them to your profile?*
+> `[ Approve ]` `[ Deny ]`
 
-**Capabilities (5 registered):** `resume_store` (real — PDF/text → structured
-credentials, writes gated by approval) · `strategy_convo` · `application_track` ·
-`job_search_match` · `emotional_support` (stubs: raw LLM calls with capability
-prompts, identical contract, promotion-ready).
+Deny it, and nothing is written — verified down to the database row. Every decision
+(approved, denied, or expired) lands in an audit table, linked to its conversation.
+Consent isn't a dialog box bolted on at the end; it's the product's architecture.
 
-See [SPEC.md](SPEC.md) for the full design, [tasks/plan.md](tasks/plan.md) for how it
-was built, and [docs/](docs/) for ADRs, the review record, the fine-tuning proposal,
-and the deployment plan.
+## Why this repo is worth your five minutes
 
-## Prerequisites
+**1. An agent architecture designed to grow, demonstrated small.** Five capabilities
+register as tools on an in-process MCP server. One (`resume_store`) is real; four are
+deliberate, honest stubs — a raw LLM call behind a stable contract, each marked with
+its promotion path. Promoting a stub to a real feature means rewriting one function
+body. Routing, storage, approval gating, and the frontend don't move. A 94%-accuracy
+routing eval (16 golden utterances, ~$0.25 a run) is the regression net that makes
+promotion safe.
 
-- **Docker** (for Postgres)
-- **uv** (Python package manager)
-- **Node 20+** (frontend build)
-- **Anthropic auth**: either an existing Claude Code login on the machine, or
-  `ANTHROPIC_API_KEY` set in the environment. The Agent SDK bundles its own Claude
-  Code CLI binary — no separate CLI install is required.
+**2. A security lesson you can only learn live.** The first approval demo wrote to
+the database with *no prompt*: the SDK's `allowed_tools` list bypasses the
+`can_use_tool` permission callback entirely. Forty-six green unit tests missed it;
+a live browser demo caught it. The fix, the regression test, and the full story are
+in [ADR-0002](docs/adr/0002-approval-design.md).
+
+**3. The complete engineering process, in the repo.** This was built spec-first in
+~13 hours against a pinned budget, and every artifact of that process ships here:
+[the spec](SPEC.md) with amendment markers where reality won arguments, [the plan](tasks/plan.md)
+with per-task acceptance criteria and actual-vs-box times, a [two-axis review](docs/review/P8-review-notes.md)
+with explicit waivers, reliability checks passed by *killing the agent subprocess
+mid-turn*, [ADRs](docs/adr/), a [fine-tuning proposal](docs/fine-tuning-proposal.md)
+whose evidence-based verdict is *"not yet — here are the four triggers that reopen
+it"*, and a [deployment plan](docs/deployment-plan.md). The [dev log](docs/devlog.md)
+tells the day's story, bugs and all.
+
+## Stack
+
+React + Vite + TypeScript · FastAPI (Python 3.12) · Claude Agent SDK
+(`ClaudeSDKClient`, in-process MCP, `can_use_tool`) · PostgreSQL 16 + pgvector ·
+SSE streaming · repository Protocols with symmetric in-memory/Postgres conformance
+tests.
+
+```
+Browser ──SSE──▶ FastAPI ──▶ AgentService ──▶ Claude Agent SDK (bundled CLI subprocess)
+                    │              │                    │
+                    │        ApprovalGate ◀── can_use_tool (write capabilities only)
+                    │              │
+              Ingestion       Capability registry (in-process MCP)
+              pipeline          resume_store · strategy · tracking · matching · support
+                    │
+              Postgres + blob store (behind swap-ready Protocols)
+```
 
 ## Run it
 
-```bash
-# 1. Database (host port 5433 — 5432 is deliberately left free)
-docker compose up -d db
+Prereqs: Docker, [uv](https://docs.astral.sh/uv/), Node 20+, and either a Claude Code
+login on the machine or `ANTHROPIC_API_KEY` in the environment (the SDK bundles its
+own CLI — nothing else to install).
 
-# 2. Backend  (http://localhost:8000)
+```bash
+docker compose up -d db          # Postgres on host :5433
+
 cd backend
 uv sync
 uv run alembic upgrade head
-uv run python run.py
+uv run python run.py             # :8000 — not uvicorn --reload; see ADR-0001
 ```
 
 ```bash
-# 3. Frontend (http://localhost:5173, proxies /api -> :8000)
 cd frontend
 npm install
-npm run dev
+npm run dev                      # :5173
 ```
 
-Open http://localhost:5173. Try: *"Should I target startups or big tech?"* (routes to
-the strategy capability), or paste resume text with *"save this to my profile"* and
-watch the approval card — nothing is written until you approve. Upload a PDF resume in
-the panel below the chat.
+Open http://localhost:5173 and try:
 
-> **Windows note:** the backend must start via `run.py` (not `uvicorn --reload` or
-> `fastapi dev`) — the Agent SDK spawns a subprocess, which requires the Proactor
-> event loop that reload mode replaces. See ADR-0001.
+- *"Should I target startups or big tech?"* → routes to the strategy capability
+- *"Save this to my profile: <paste a few resume lines>"* → the approval card appears;
+  deny it once, just to watch nothing happen
+- Upload a PDF resume → watch it move through `uploaded → extracted → decomposed →
+  stored`, credentials appearing as they land
 
-## Quality gates
+## Quality
 
 ```bash
 cd backend
-uv run pytest                 # 51 unit tests (fast, no tokens, no DB)
-uv run pytest -m integration  # against a dedicated amadeus_test DB (compose DB up)
-uv run pytest tests/evals -m eval   # routing eval vs the REAL agent (costs ~$0.25)
-uv run ruff check . && uv run mypy
-
-cd frontend
-npm run typecheck && npm run build
+uv run pytest                       # 51 unit tests — fast, no tokens, no DB
+uv run pytest -m integration        # dedicated amadeus_test database
+uv run pytest tests/evals -m eval   # routing eval vs the REAL agent (~$0.25)
+uv run ruff check . && uv run mypy  # lint + strict typing, both clean
 ```
 
-Current state: 51 unit + 4 integration green; routing eval **94%** (threshold 80% —
-[report](backend/tests/evals/REPORT-2026-07-30.md)); ruff + mypy strict clean.
+Routing eval: **94%** ([report](backend/tests/evals/REPORT-2026-07-30.md)). Reliability
+is tested by breaking things: a dead Anthropic endpoint yields a readable error (never
+a hung stream), and a killed agent subprocess recovers with a fresh session and a
+visible notice.
 
-## Project layout
+## Status & roadmap
 
-```
-backend/app/
-  agent/         AgentService (SDK session pool), ApprovalGate, prompts, events
-  capabilities/  registry (in-process MCP server), resume_store, stubs/
-  ingestion/     validate -> extract (pdfplumber) -> decompose (LLM) -> store
-  repositories/  Protocol interfaces + Postgres and in-memory implementations
-  routes/        chat (SSE), documents, approvals — thin handlers
-frontend/src/    ChatWindow, MessageList, UploadPanel, SSE client
-docs/            ADRs, review notes, fine-tuning proposal, deployment plan
-tasks/           plan + checklist with actual-vs-box time tracking
-```
+v1 is closed and honest about its edges: chat history persists but doesn't yet
+re-render on reload, OCR is deferred until a real scanned resume shows up, and stubs
+advise but don't store. The promotion ladder and full roadmap live in
+[docs/v1-summary.md](docs/v1-summary.md).
 
-## Design guarantees worth knowing
+## License
 
-- **Consent is the product.** Write capabilities are excluded from `allowed_tools`
-  (which would bypass the permission callback — ADR-0002) and pause the turn for a
-  plain-language approval; every decision lands in the `approval` audit table.
-- **Fails loudly, recovers quietly.** Errors arrive as readable chat messages; a dead
-  SDK subprocess is dropped and the next turn announces the fresh session. Verified
-  by killing the subprocess mid-turn ([review record](docs/review/P8-review-notes.md)).
-- **Stubs are honest.** Every stub carries a `# STUB:` marker and its promotion path;
-  the [routing eval](backend/tests/evals/test_routing.py) is the regression net that
-  makes promotion safe.
+MIT — see [LICENSE](LICENSE).
