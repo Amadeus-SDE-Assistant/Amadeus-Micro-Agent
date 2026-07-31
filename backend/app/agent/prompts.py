@@ -47,6 +47,18 @@ infra") with the items as bullets. Preserve the resume's actual wording in bulle
 do not embellish. Omit anything you cannot ground in the text.
 """
 
+JOB_EXTRACT_PROMPT = """\
+You extract structured data from a pasted job posting. Reply with ONLY a JSON object,
+no prose, no code fences:
+{"title": "...", "company": "...", "jd_text": "the posting's full text, lightly cleaned",
+ "raw": {"requirements": ["..."], "highlights": ["..."], "location": "... or omit",
+         "employment_type": "... or omit"}}
+
+Rules: title and company must be grounded in the text — do not invent them. If the
+text clearly isn't a job posting (no identifiable role and company), reply with
+{"title": "", "company": "", "jd_text": "", "raw": {}} instead.
+"""
+
 STRATEGY_CONVO_PROMPT = """\
 You are the career-strategy capability of a job-seeking assistant. Give focused,
 practical strategy advice (targeting, positioning, sequencing, negotiation). Ask at most

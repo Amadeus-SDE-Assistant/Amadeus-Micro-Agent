@@ -4,6 +4,7 @@ import pytest
 
 from app.ingestion.decompose import DecompositionError, parse_credentials
 from app.ingestion.extract import extract_text
+from app.ingestion.job_extract import JobExtractionError, parse_job
 from app.ingestion.validate import MAX_UPLOAD_BYTES, ValidationError, validate_upload
 from tests.fixtures.pdfs import scanned_like_pdf, text_layer_resume_pdf
 
@@ -79,3 +80,31 @@ class TestDecomposeParsing:
     def test_rejects_bad_output(self, raw: str) -> None:
         with pytest.raises(DecompositionError):
             parse_credentials(raw)
+
+
+class TestJobExtractParsing:
+    VALID = {
+        "title": "Backend Engineer",
+        "company": "Acme",
+        "jd_text": "We're hiring a backend engineer...",
+        "raw": {"requirements": ["Python", "SQL"]},
+    }
+
+    def test_parses_valid_json(self) -> None:
+        job = parse_job(json.dumps(self.VALID))
+        assert job.title == "Backend Engineer"
+        assert job.company == "Acme"
+        assert job.raw == {"requirements": ["Python", "SQL"]}
+
+    def test_parses_fenced_json(self) -> None:
+        fenced = "```json\n" + json.dumps(self.VALID) + "\n```"
+        assert parse_job(fenced).title == "Backend Engineer"
+
+    def test_rejects_non_job_text(self) -> None:
+        empty = json.dumps({"title": "", "company": "", "jd_text": "", "raw": {}})
+        with pytest.raises(JobExtractionError):
+            parse_job(empty)
+
+    def test_rejects_malformed_json(self) -> None:
+        with pytest.raises(JobExtractionError):
+            parse_job("not json at all")

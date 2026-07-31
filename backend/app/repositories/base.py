@@ -45,6 +45,7 @@ class JobIn(BaseModel):
     company: str
     source: str = "user_reported"
     jd_text: str = ""
+    raw: dict[str, Any] = Field(default_factory=dict)
 
 
 class JobOut(JobIn):
