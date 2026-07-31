@@ -107,6 +107,9 @@ class MemoryJobRepository:
         self._rows[row.id] = row
         return row
 
+    async def list_for(self, candidate_id: uuid.UUID) -> list[JobOut]:
+        return list(self._rows.values())
+
 
 class MemoryApplicationRepository:
     def __init__(self) -> None:

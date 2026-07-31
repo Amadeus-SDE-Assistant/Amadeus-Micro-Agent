@@ -108,6 +108,16 @@ class DocumentRepository(Protocol):
 class JobRepository(Protocol):
     async def add(self, job: JobIn) -> JobOut: ...
 
+    async def list_for(self, candidate_id: uuid.UUID) -> list[JobOut]:
+        """Jobs regardless of capture origin (job_capture vs application_track).
+
+        Job carries no candidate_id column; v1/v2 is single-candidate (SPEC
+        §12 q2), so every job belongs to the one implicit candidate.
+        candidate_id is accepted for forward compatibility with multi-
+        candidate, but not used to filter today.
+        """
+        ...
+
 
 class ApplicationRepository(Protocol):
     """No job-matching/dedup in v1 (SPEC §14 T11.2 design) — every application_track

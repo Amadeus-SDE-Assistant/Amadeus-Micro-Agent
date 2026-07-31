@@ -98,6 +98,14 @@ async def assert_job_contract(repo: JobRepository) -> None:
     again = await repo.add(JobIn(title="Backend Engineer", company="Acme"))
     assert again.id != job.id
 
+    # list_for returns jobs regardless of capture origin (T12.5) — v1/v2 is
+    # single-candidate, so a job_capture-sourced job comes back too. Subset,
+    # not exact-set: list_for is deliberately unscoped, and the Postgres
+    # conformance run shares a DB across test invocations.
+    captured = await repo.add(JobIn(title="Data Engineer", company="Globex", source="user_pasted"))
+    listed_ids = {j.id for j in await repo.list_for(uuid.uuid4())}
+    assert {job.id, again.id, captured.id} <= listed_ids
+
 
 async def assert_application_contract(
     repo: ApplicationRepository, candidate_id: uuid.UUID, job_id: uuid.UUID

@@ -175,6 +175,21 @@ class PgJobRepository:
             await session.flush()
             return JobOut(id=row.id, **job.model_dump())
 
+    async def list_for(self, candidate_id: uuid.UUID) -> list[JobOut]:
+        async with session_scope(self._factory) as session:
+            rows = await session.scalars(select(Job).order_by(Job.created_at))
+            return [
+                JobOut(
+                    id=r.id,
+                    title=r.title,
+                    company=r.company,
+                    source=r.source,
+                    jd_text=r.jd_text,
+                    raw=r.raw,
+                )
+                for r in rows
+            ]
+
 
 def _application_out(row: Application) -> ApplicationOut:
     return ApplicationOut(
