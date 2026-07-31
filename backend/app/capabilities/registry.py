@@ -15,6 +15,7 @@ from typing import Any
 from claude_agent_sdk import SdkMcpTool, create_sdk_mcp_server
 from claude_agent_sdk.types import McpSdkServerConfig
 
+from app.capabilities.job_capture import job_capture
 from app.capabilities.profile import profile_recall, profile_save
 from app.capabilities.resume_store import resume_store
 from app.capabilities.stubs.application_track import application_track
@@ -32,6 +33,7 @@ _CAPABILITIES: list[SdkMcpTool[Any]] = [
     emotional_support,
     profile_save,
     profile_recall,
+    job_capture,
 ]
 
 
@@ -61,10 +63,17 @@ def _profile_save_intent(args: dict[str, Any]) -> str:
     return "Save this to your profile?"
 
 
+def _job_capture_intent(args: dict[str, Any]) -> str:
+    excerpt = str(args.get("posting_text", ""))
+    words = len(excerpt.split())
+    return f"Save the job posting you shared (~{words} words) so you can check your fit against it?"
+
+
 _WRITE_INTENTS: dict[str, Callable[[dict[str, Any]], str]] = {
     f"mcp__{SERVER_NAME}__resume_store": _resume_store_intent,
     f"mcp__{SERVER_NAME}__application_track": _application_track_intent,
     f"mcp__{SERVER_NAME}__profile_save": _profile_save_intent,
+    f"mcp__{SERVER_NAME}__job_capture": _job_capture_intent,
 }
 
 
