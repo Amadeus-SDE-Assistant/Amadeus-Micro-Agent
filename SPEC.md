@@ -768,3 +768,12 @@ Two known gaps, both pre-existing and unrelated to this phase's diff:
 sandbox-disabled; user opted to proceed and fix the policy separately), and
 `ruff format --check .` fails repo-wide on ~10 files this phase never
 touched (a ruff version bump since Phase 11 closed).
+
+**Correction (same day, post-C12): the mypy gap is closed.** The policy
+blocks the `mypy.exe` console-script shim specifically, not the package —
+`uv run python -m mypy app` runs it under `python.exe` and is unaffected.
+(Consistent with `pytest.exe`/`ruff.exe` in the same `.venv/Scripts/`
+running fine all session, which should have been the tell.) Run against the
+full Phase 12 diff: **Success, no issues found in 42 source files.** So
+Phase 12 *is* typechecked, and the standing gate in CLAUDE.md holds. Use
+`python -m mypy app` as the invocation from here on.
