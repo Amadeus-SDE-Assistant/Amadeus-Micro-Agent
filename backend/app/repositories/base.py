@@ -45,6 +45,7 @@ class JobIn(BaseModel):
     company: str
     source: str = "user_reported"
     jd_text: str = ""
+    raw: dict[str, Any] = Field(default_factory=dict)
 
 
 class JobOut(JobIn):
@@ -56,6 +57,13 @@ class ApplicationOut(BaseModel):
     candidate_id: uuid.UUID
     job_id: uuid.UUID
     status: str
+
+
+class ProfileFactOut(BaseModel):
+    id: uuid.UUID
+    candidate_id: uuid.UUID
+    key: str
+    value: str
 
 
 class ConversationRepository(Protocol):
@@ -100,6 +108,16 @@ class DocumentRepository(Protocol):
 class JobRepository(Protocol):
     async def add(self, job: JobIn) -> JobOut: ...
 
+    async def list_for(self, candidate_id: uuid.UUID) -> list[JobOut]:
+        """Jobs regardless of capture origin (job_capture vs application_track).
+
+        Job carries no candidate_id column; v1/v2 is single-candidate (SPEC
+        §12 q2), so every job belongs to the one implicit candidate.
+        candidate_id is accepted for forward compatibility with multi-
+        candidate, but not used to filter today.
+        """
+        ...
+
 
 class ApplicationRepository(Protocol):
     """No job-matching/dedup in v1 (SPEC §14 T11.2 design) — every application_track
@@ -118,6 +136,14 @@ class ApplicationRepository(Protocol):
     async def add_event(
         self, application_id: uuid.UUID, event_type: str, payload: dict[str, Any]
     ) -> None: ...
+
+
+class ProfileRepository(Protocol):
+    """Generic personal-fact store (SPEC §15 T12.1) — upsert on (candidate_id, key)."""
+
+    async def set(self, candidate_id: uuid.UUID, key: str, value: str) -> ProfileFactOut: ...
+
+    async def get_all(self, candidate_id: uuid.UUID) -> list[ProfileFactOut]: ...
 
 
 class ApprovalRepository(Protocol):

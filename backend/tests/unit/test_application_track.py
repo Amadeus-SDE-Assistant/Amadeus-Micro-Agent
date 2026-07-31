@@ -9,7 +9,11 @@ from typing import Any
 
 from app.capabilities.context import CapabilityContext, set_capability_context
 from app.capabilities.stubs.application_track import application_track
-from app.repositories.memory import MemoryApplicationRepository, MemoryJobRepository
+from app.repositories.memory import (
+    MemoryApplicationRepository,
+    MemoryJobRepository,
+    MemoryProfileRepository,
+)
 
 UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
@@ -23,6 +27,7 @@ def make_context() -> tuple[MemoryJobRepository, MemoryApplicationRepository]:
             candidate_id=uuid.uuid4(),
             jobs=jobs,
             applications=applications,
+            profile=MemoryProfileRepository(),
         )
     )
     return jobs, applications

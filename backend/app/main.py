@@ -20,6 +20,7 @@ from app.repositories.postgres import (
     PgCredentialRepository,
     PgDocumentRepository,
     PgJobRepository,
+    PgProfileRepository,
     ensure_default_candidate,
 )
 from app.routes.approvals import router as approvals_router
@@ -40,6 +41,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.credentials = PgCredentialRepository(app.state.session_factory)
     app.state.jobs = PgJobRepository(app.state.session_factory)
     app.state.applications = PgApplicationRepository(app.state.session_factory)
+    app.state.profile = PgProfileRepository(app.state.session_factory)
     app.state.blobs = FsBlobStore(settings.data_dir / "blobs")
     app.state.default_candidate_id = await ensure_default_candidate(
         app.state.session_factory
@@ -50,6 +52,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             candidate_id=app.state.default_candidate_id,
             jobs=app.state.jobs,
             applications=app.state.applications,
+            profile=app.state.profile,
         )
     )
     app.state.approval_gate = ApprovalGate(

@@ -69,6 +69,15 @@ GOLDEN: list[Case] = [
     Case("I got rejected again today and I honestly feel like giving up.",
          {"emotional_support"}),
     Case("This search is burning me out.", {"emotional_support"}),
+    # job_capture (SPEC §15 T12.7)
+    Case("Here's a job posting I found — Senior Backend Engineer at Acme Corp, "
+         "remote, 5+ years Python and PostgreSQL required. Can you save this so "
+         "I can check my fit later?", {"job_capture"}),
+    # profile_save / profile_recall (SPEC §15 T12.7)
+    Case("Just so you remember: I'm only looking for fully remote roles, ideally "
+         "in fintech, and I won't consider anything under $160k.",
+         {"profile_save"}),
+    Case("What do you know about my job preferences so far?", {"profile_recall"}),
     # no tool
     Case("hey, how's it going?", {NONE}),
     Case("thanks, that was really helpful!", {NONE}),

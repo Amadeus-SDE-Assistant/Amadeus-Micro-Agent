@@ -9,6 +9,7 @@ from app.models.tables import (
     Document,
     Job,
     Message,
+    ProfileFact,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "Document",
     "Job",
     "Message",
+    "ProfileFact",
 ]
