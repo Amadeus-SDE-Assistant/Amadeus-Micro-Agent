@@ -36,8 +36,10 @@ async def profile_save(args: dict[str, Any]) -> dict[str, Any]:
 @tool(
     "profile_recall",
     "Look up personal facts previously saved to the user's profile: preferences, "
-    "goals, constraints. Use when the user asks what you know or remember about "
-    "them, or when a saved preference would help answer their question.",
+    "goals, constraints. Use ONLY when the user explicitly asks what you know, "
+    "remember, or have saved about them. Do not use this as a general step "
+    "before answering strategy, application-tracking, or job-matching "
+    "questions — those have their own capabilities.",
     {},
 )
 async def profile_recall(_args: dict[str, Any]) -> dict[str, Any]:
