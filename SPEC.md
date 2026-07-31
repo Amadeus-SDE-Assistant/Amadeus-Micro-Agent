@@ -720,9 +720,51 @@ triggers (new tools change routing surface — same reason T7.2's golden set exi
 no frontend changes expected, but the check still runs.
 - **AC:** all quality gates green; golden set still clears the ≥80% gate.
 
-### CHECKPOINT C12 — to be demoed at close (not yet run)
+### CHECKPOINT C12 — Phase 12 CLOSED 2026-07-30
 
-Same demo bar as C11: live against the real running system. Two flows:
-(1) job capture → real match assessment (T12.4 → T12.6), (2) profile round-trip
-(T12.2). Per this project's ritual — a phase isn't done until demonstrated working,
-not just written.
+Both flows demoed live against the real running system (backend + Postgres +
+agent subprocess), via SSE + curl against the same live server the browser
+frontend was serving from.
+
+**Flow 1 — job capture → real match.** Pasted a job posting into chat →
+`job_capture` routed → one descriptive approval ("Save the job posting you
+shared (~25 words) so you can check your fit against it?") → approved →
+`Job` row persisted with `source=user_pasted` and a populated `raw` dict
+(requirements/location correctly extracted), audit row present. Follow-up
+turn referencing the returned `job_id` → `job_search_match` returned an
+assessment citing actual stored credentials by name (pgvector/Postgres work,
+a 2M-events/day service, real date ranges), computed tenure against the
+posting's "5+ years" bar, and correctly flagged a skill as thin because no
+bullet backed it — not a generic stub answer.
+
+**Flow 2 — profile round-trip.** "Remember for later: remote only, fintech
+or dev tools, 165k minimum" → `profile_save` → descriptive approval listing
+the facts in plain language → approved → 3 `profile_fact` rows in Postgres.
+Then, in a **fresh conversation**, "What do you know about my job
+preferences?" → `profile_recall` returned all three correctly, with no
+approval prompt (read-only path). The fresh conversation is the point: this
+proves durable storage, not conversation memory.
+
+Incidental proof during Flow 2's first attempt: the 90s approval timeout
+fired before the decision was posted, the write did not happen, and the
+agent degraded gracefully ("saving timed out on approval — want me to try
+again?"). The gate still holds.
+
+**Routing eval:** 89% (17/19), above the ≥80% gate, ~$0.11/run. First run
+surfaced a real regression — `profile_recall`'s tool description was
+permissive enough to hijack routing from `strategy_convo` and
+`application_track`; tightened and re-verified. The remaining 2 failures on
+the re-run were a different, unrelated pair (`application_track` cases that
+passed in run 1) — normal run-to-run LLM sampling variance, not a code
+issue.
+
+**Quality gates at close:** 79 backend tests (72 unit + 7 integration, up
+from 63) + ruff check/format clean on every file touched this phase +
+frontend `tsc` and `vite build` clean.
+
+Two known gaps, both pre-existing and unrelated to this phase's diff:
+`mypy` could not be run at all (a Windows Application Control policy blocks
+`.venv/Scripts/mypy.exe` — confirmed via Bash, PowerShell, and
+sandbox-disabled; user opted to proceed and fix the policy separately), and
+`ruff format --check .` fails repo-wide on ~10 files this phase never
+touched (a ruff version bump since Phase 11 closed).

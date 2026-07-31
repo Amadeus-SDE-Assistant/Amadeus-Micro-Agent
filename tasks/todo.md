@@ -100,22 +100,36 @@ actual time vs. box at each checkpoint. Deferral list state lives at the bottom.
 
 ## Phase 12 — v2: job capture + profile layer (~8h, SPEC §15)
 Scoped via `interview-me` after Phase 11's pause; full interview record in
-`docs/intent/v2-job-capture-and-profile.md`. Not started.
-- [ ] T12.1 `ProfileFact` schema + repository — Protocol + Postgres + memory +
-      conformance (60m)
-- [ ] T12.2 Profile capabilities: `profile_save` (write, gated) +
-      `profile_recall` (read) + context wiring + intent builder (60m)
-- [ ] T12.3 Job-posting extraction module (`ingestion/job_extract.py`) (60m)
-- [ ] T12.4 `job_capture` capability: paste → extract → store behind one
-      approval (50m)
-- [ ] T12.5 `JobRepository.list_for()` — Postgres + memory + conformance
-      update (30m)
-- [ ] T12.6 `job_search_match` promotion: real fit assessment vs. stored
-      jobs + credentials, no pgvector (70m)
-- [ ] T12.7 Tests + quality gates: unit/integration coverage, routing
-      golden-set update, ruff/mypy/pytest/tsc clean (70m)
-- [ ] CHECKPOINT C12: demo both flows live (capture→match, profile
-      round-trip) → commit → update progress pointer
+`docs/intent/v2-job-capture-and-profile.md`.
+- [x] T12.1 `ProfileFact` schema + repository — Protocol + Postgres (real
+      ON CONFLICT upsert) + memory + conformance (60m). Commit `d20db4f`.
+- [x] T12.2 Profile capabilities: `profile_save` (write, gated) +
+      `profile_recall` (read) + context wiring + intent builder (60m).
+      Registry went 5 → 7 capabilities. Commit `f10ce74`.
+- [x] T12.3 Job-posting extraction module (`ingestion/job_extract.py`) (60m)
+      — mirrors decompose.py; `JobIn` gained a `raw` dict. Commit `14c6866`.
+- [x] T12.4 `job_capture` capability: paste → extract → store behind one
+      approval (50m), `source=user_pasted`. Commit `a615692`.
+- [x] T12.5 `JobRepository.list_for()` — returns jobs from BOTH capture
+      origins (a join through Application would have silently dropped
+      job_capture rows, which have none) (30m). Commit `620c1cd`.
+- [x] T12.6 `job_search_match` promotion: real fit assessment vs. stored
+      jobs + credentials, no pgvector (70m). A live smoke test caught a real
+      grounding bug pre-commit — the first pass dropped credential `body`
+      bullets, so the model reported "no data" on skills that were on file.
+      Commit `ba6b880`.
+- [x] T12.7 Tests + quality gates: 79 tests, routing golden-set +3 cases,
+      ruff/pytest/tsc clean (70m). The eval run surfaced a real
+      `profile_recall` over-triggering regression, fixed + re-verified.
+      Commits `4cf825a`, `11cb024`.
+- [x] CHECKPOINT C12: both flows demoed live against the real running
+      system. Capture→match: approval → `Job` row (`source=user_pasted`,
+      `raw` populated) → assessment citing actual stored credentials and
+      dates. Profile round-trip: save → 3 `profile_fact` rows → recall in a
+      **fresh conversation** returned all three, no approval on the read.
+      Incidental: a 90s approval timeout fired mid-demo, wrote nothing, and
+      the agent degraded gracefully — the gate still holds.
+      **Phase 12 CLOSED 2026-07-30.**
 
 ---
 
