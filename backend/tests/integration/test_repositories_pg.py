@@ -16,6 +16,7 @@ from app.repositories.postgres import (
     PgCredentialRepository,
     PgDocumentRepository,
     PgJobRepository,
+    PgProfileRepository,
 )
 from tests.unit.test_repositories import (
     assert_application_contract,
@@ -23,6 +24,7 @@ from tests.unit.test_repositories import (
     assert_credential_contract,
     assert_document_contract,
     assert_job_contract,
+    assert_profile_contract,
 )
 
 pytestmark = pytest.mark.integration
@@ -58,6 +60,11 @@ async def test_pg_application_contract(factory) -> None:  # type: ignore[no-unty
     candidate_id = await make_candidate(factory)
     job = await PgJobRepository(factory).add(JobIn(title="x", company="y"))
     await assert_application_contract(PgApplicationRepository(factory), candidate_id, job.id)
+
+
+async def test_pg_profile_contract(factory) -> None:  # type: ignore[no-untyped-def]
+    candidate_id = await make_candidate(factory)
+    await assert_profile_contract(PgProfileRepository(factory), candidate_id)
 
 
 async def test_pg_approval_contract(factory) -> None:  # type: ignore[no-untyped-def]

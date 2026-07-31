@@ -4,7 +4,8 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.db import session_scope
@@ -18,6 +19,7 @@ from app.models import (
     Document,
     Job,
     Message,
+    ProfileFact,
 )
 from app.repositories.base import (
     ApplicationOut,
@@ -27,6 +29,7 @@ from app.repositories.base import (
     JobIn,
     JobOut,
     MessageOut,
+    ProfileFactOut,
 )
 
 
@@ -213,6 +216,39 @@ class PgApplicationRepository:
                     application_id=application_id, event_type=event_type, payload=payload
                 )
             )
+
+
+class PgProfileRepository:
+    def __init__(self, factory: async_sessionmaker[AsyncSession]) -> None:
+        self._factory = factory
+
+    async def set(self, candidate_id: uuid.UUID, key: str, value: str) -> ProfileFactOut:
+        async with session_scope(self._factory) as session:
+            stmt = (
+                pg_insert(ProfileFact)
+                .values(candidate_id=candidate_id, key=key, value=value)
+                .on_conflict_do_update(
+                    index_elements=[ProfileFact.candidate_id, ProfileFact.key],
+                    set_={"value": value, "updated_at": func.now()},
+                )
+                .returning(ProfileFact)
+            )
+            row = (await session.execute(stmt)).scalar_one()
+            return ProfileFactOut(
+                id=row.id, candidate_id=row.candidate_id, key=row.key, value=row.value
+            )
+
+    async def get_all(self, candidate_id: uuid.UUID) -> list[ProfileFactOut]:
+        async with session_scope(self._factory) as session:
+            rows = await session.scalars(
+                select(ProfileFact)
+                .where(ProfileFact.candidate_id == candidate_id)
+                .order_by(ProfileFact.key)
+            )
+            return [
+                ProfileFactOut(id=r.id, candidate_id=r.candidate_id, key=r.key, value=r.value)
+                for r in rows
+            ]
 
 
 class PgApprovalRepository:

@@ -58,6 +58,13 @@ class ApplicationOut(BaseModel):
     status: str
 
 
+class ProfileFactOut(BaseModel):
+    id: uuid.UUID
+    candidate_id: uuid.UUID
+    key: str
+    value: str
+
+
 class ConversationRepository(Protocol):
     async def ensure_conversation(self, sdk_session_id: str) -> uuid.UUID:
         """Get-or-create by external session id; returns the conversation pk."""
@@ -118,6 +125,14 @@ class ApplicationRepository(Protocol):
     async def add_event(
         self, application_id: uuid.UUID, event_type: str, payload: dict[str, Any]
     ) -> None: ...
+
+
+class ProfileRepository(Protocol):
+    """Generic personal-fact store (SPEC §15 T12.1) — upsert on (candidate_id, key)."""
+
+    async def set(self, candidate_id: uuid.UUID, key: str, value: str) -> ProfileFactOut: ...
+
+    async def get_all(self, candidate_id: uuid.UUID) -> list[ProfileFactOut]: ...
 
 
 class ApprovalRepository(Protocol):

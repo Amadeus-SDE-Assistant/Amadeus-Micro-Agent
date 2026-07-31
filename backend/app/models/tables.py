@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -105,12 +105,29 @@ class ApplicationEvent(Base):
     __tablename__ = "application_event"
 
     id: Mapped[uuid.UUID] = _uuid_pk()
-    application_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("application.id"), index=True
-    )
+    application_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("application.id"), index=True)
     event_type: Mapped[str] = mapped_column(String(50))
     payload: Mapped[dict[str, Any]] = mapped_column(default=dict)
     at: Mapped[datetime] = _now()
+
+
+class ProfileFact(Base):
+    """Generic personal-fact store beyond resume credentials (SPEC §15 T12.1).
+
+    Domain-agnostic by design (key/value, not job-seeking-specific) so a future
+    capability domain (e.g. mental care) can read this table without a migration.
+    """
+
+    __tablename__ = "profile_fact"
+    __table_args__ = (
+        UniqueConstraint("candidate_id", "key", name="uq_profile_fact_candidate_key"),
+    )
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    candidate_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("candidate.id"), index=True)
+    key: Mapped[str] = mapped_column(String(200))
+    value: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
 
 class Conversation(Base):
@@ -129,9 +146,7 @@ class Message(Base):
     __tablename__ = "message"
 
     id: Mapped[uuid.UUID] = _uuid_pk()
-    conversation_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("conversation.id"), index=True
-    )
+    conversation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("conversation.id"), index=True)
     role: Mapped[str] = mapped_column(String(20))  # user|assistant|system
     content: Mapped[dict[str, Any]] = mapped_column(default=dict)
     at: Mapped[datetime] = _now()

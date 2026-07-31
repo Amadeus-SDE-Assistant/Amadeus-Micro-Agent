@@ -15,6 +15,7 @@ from app.repositories.base import (
     JobIn,
     JobOut,
     MessageOut,
+    ProfileFactOut,
 )
 
 
@@ -133,6 +134,25 @@ class MemoryApplicationRepository:
         self, application_id: uuid.UUID, event_type: str, payload: dict[str, Any]
     ) -> None:
         self.events[application_id].append((event_type, payload))
+
+
+class MemoryProfileRepository:
+    def __init__(self) -> None:
+        self._rows: dict[tuple[uuid.UUID, str], ProfileFactOut] = {}
+
+    async def set(self, candidate_id: uuid.UUID, key: str, value: str) -> ProfileFactOut:
+        existing = self._rows.get((candidate_id, key))
+        row = ProfileFactOut(
+            id=existing.id if existing else uuid.uuid4(),
+            candidate_id=candidate_id,
+            key=key,
+            value=value,
+        )
+        self._rows[(candidate_id, key)] = row
+        return row
+
+    async def get_all(self, candidate_id: uuid.UUID) -> list[ProfileFactOut]:
+        return [row for (cid, _key), row in self._rows.items() if cid == candidate_id]
 
 
 class MemoryApprovalRepository:

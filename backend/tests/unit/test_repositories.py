@@ -16,6 +16,7 @@ from app.repositories.base import (
     DocumentRepository,
     JobIn,
     JobRepository,
+    ProfileRepository,
 )
 from app.repositories.memory import (
     MemoryApplicationRepository,
@@ -24,6 +25,7 @@ from app.repositories.memory import (
     MemoryCredentialRepository,
     MemoryDocumentRepository,
     MemoryJobRepository,
+    MemoryProfileRepository,
 )
 
 
@@ -115,6 +117,25 @@ async def assert_application_contract(
     assert updated is not None and updated.status == "interviewing"
 
 
+async def assert_profile_contract(repo: ProfileRepository, candidate_id: uuid.UUID) -> None:
+    await repo.set(candidate_id, "target_role", "Backend Engineer")
+    facts = await repo.get_all(candidate_id)
+    assert len(facts) == 1
+    assert facts[0].key == "target_role" and facts[0].value == "Backend Engineer"
+
+    # Upsert: setting the same key again updates in place, never duplicates.
+    await repo.set(candidate_id, "target_role", "Staff Engineer")
+    facts = await repo.get_all(candidate_id)
+    assert len(facts) == 1
+    assert facts[0].value == "Staff Engineer"
+
+    await repo.set(candidate_id, "location_preference", "Remote, US only")
+    facts = await repo.get_all(candidate_id)
+    assert {f.key for f in facts} == {"target_role", "location_preference"}
+
+    assert await repo.get_all(uuid.uuid4()) == []
+
+
 async def test_memory_conversation_contract() -> None:
     await assert_conversation_contract(MemoryConversationRepository())
 
@@ -138,3 +159,7 @@ async def test_memory_job_contract() -> None:
 async def test_memory_application_contract() -> None:
     job = await MemoryJobRepository().add(JobIn(title="x", company="y"))
     await assert_application_contract(MemoryApplicationRepository(), uuid.uuid4(), job.id)
+
+
+async def test_memory_profile_contract() -> None:
+    await assert_profile_contract(MemoryProfileRepository(), uuid.uuid4())
