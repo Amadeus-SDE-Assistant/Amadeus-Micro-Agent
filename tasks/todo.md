@@ -68,6 +68,71 @@ actual time vs. box at each checkpoint. Deferral list state lives at the bottom.
 
 ---
 
+## Phase 11 — Gap-closing pass (~3h, SPEC §14)
+- [x] T11.0 (unplanned, P0): SDK built-in tools (Bash/Read/Write/Edit) were
+      reachable with zero approval — found live while verifying T11.1. Fixed
+      with `tools=[]`; regression test confirmed RED before GREEN. Commit `1b5add5`.
+- [x] T11.1 Chat history re-render: GET route + client persistence + hydrate (35m)
+      — verified live (reload mid-conversation, no dupes). Commit `98e417e`.
+- [x] T11.2 `application_track` promotion: Job + Application repos, context wiring,
+      capability rewrite, intent builder — no-dedup design approved 2026-07-30 (70m).
+      Verified live via curl against the real server + real Postgres: create -> one
+      approval -> Job+Application+ApplicationEvent+audit row persisted (3x); update
+      via returned application_id -> status changes in place, event appended, zero
+      duplicate Job/Application rows; expiry still blocks writes.
+- [x] T11.3 OCR fallback: Tesseract install (winget, UB-Mannheim build), ocr.py
+      (pdfplumber rasterize + pytesseract, explicit install-path fallback since
+      PATH isn't reliable for winget on Windows), pipeline.py needs_ocr branch
+      now runs OCR instead of stopping; missing-binary path fails to
+      status=failed with a reason, not a crash (65m). Verified live: uploaded
+      a synthetic scanned PDF (rasterized text, no real text layer) through
+      the real REST endpoint -> status=stored, extraction_method=ocr, 2
+      credentials correctly decomposed from the OCR'd text.
+- [x] CHECKPOINT C11: T11.1 demoed live in-browser (reload mid-conversation).
+      T11.2 + T11.3 demoed live via curl + direct Postgres inspection against
+      the real running server, DB, and agent subprocess — the Browser pane
+      went into a non-displayed state mid-session (clicks stopped landing;
+      DOM/network still worked), so curl substituted for click-testing from
+      T11.2 onward. All quality gates clean at close: 63 backend tests +
+      ruff + mypy + frontend tsc. Phase 11 CLOSED 2026-07-30.
+
+---
+
+## Phase 12 — v2: job capture + profile layer (~8h, SPEC §15)
+Scoped via `interview-me` after Phase 11's pause; full interview record in
+`docs/intent/v2-job-capture-and-profile.md`.
+- [x] T12.1 `ProfileFact` schema + repository — Protocol + Postgres (real
+      ON CONFLICT upsert) + memory + conformance (60m). Commit `d20db4f`.
+- [x] T12.2 Profile capabilities: `profile_save` (write, gated) +
+      `profile_recall` (read) + context wiring + intent builder (60m).
+      Registry went 5 → 7 capabilities. Commit `f10ce74`.
+- [x] T12.3 Job-posting extraction module (`ingestion/job_extract.py`) (60m)
+      — mirrors decompose.py; `JobIn` gained a `raw` dict. Commit `14c6866`.
+- [x] T12.4 `job_capture` capability: paste → extract → store behind one
+      approval (50m), `source=user_pasted`. Commit `a615692`.
+- [x] T12.5 `JobRepository.list_for()` — returns jobs from BOTH capture
+      origins (a join through Application would have silently dropped
+      job_capture rows, which have none) (30m). Commit `620c1cd`.
+- [x] T12.6 `job_search_match` promotion: real fit assessment vs. stored
+      jobs + credentials, no pgvector (70m). A live smoke test caught a real
+      grounding bug pre-commit — the first pass dropped credential `body`
+      bullets, so the model reported "no data" on skills that were on file.
+      Commit `ba6b880`.
+- [x] T12.7 Tests + quality gates: 79 tests, routing golden-set +3 cases,
+      ruff/pytest/tsc clean (70m). The eval run surfaced a real
+      `profile_recall` over-triggering regression, fixed + re-verified.
+      Commits `4cf825a`, `11cb024`.
+- [x] CHECKPOINT C12: both flows demoed live against the real running
+      system. Capture→match: approval → `Job` row (`source=user_pasted`,
+      `raw` populated) → assessment citing actual stored credentials and
+      dates. Profile round-trip: save → 3 `profile_fact` rows → recall in a
+      **fresh conversation** returned all three, no approval on the read.
+      Incidental: a 90s approval timeout fired mid-demo, wrote nothing, and
+      the agent degraded gracefully — the gate still holds.
+      **Phase 12 CLOSED 2026-07-30.**
+
+---
+
 ## Deferral list — FINAL STATE at v1 close
 1. OCR fallback — **deferred** (needs_ocr path stops cleanly; trigger = first real
    scanned resume; install = winget tesseract + pytesseract)

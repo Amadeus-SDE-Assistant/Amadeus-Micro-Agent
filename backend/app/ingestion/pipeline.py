@@ -5,8 +5,8 @@ UI (and audit) can see exactly where a file is; failures land as status=failed w
 a reason and zero partial credential writes (SPEC §10 rows 5).
 
 Status flow: uploaded → extracted → decomposed → stored
-                     ↘ needs_ocr (clean stop, OCR deferred)
-                     ↘ failed (any stage, with reason)
+                     ↘ extracted (via OCR, SPEC §14 T11.3) → decomposed → stored
+                     ↘ failed (any stage, with reason — incl. OCR unavailable)
 """
 
 import logging
@@ -15,6 +15,7 @@ import uuid
 
 from app.ingestion.decompose import DecompositionError, decompose
 from app.ingestion.extract import extract_text
+from app.ingestion.ocr import OcrUnavailableError, run_ocr
 from app.logging_setup import log_extra
 from app.repositories.base import BlobStore, CredentialRepository, DocumentRepository
 
@@ -36,19 +37,27 @@ async def run_pipeline(
 
         extraction = await extract_text(data)
         if extraction.needs_ocr:
+            await documents.set_status(document_id, "needs_ocr")
+            try:
+                ocr_result = await run_ocr(data)
+            except OcrUnavailableError as exc:
+                await documents.set_status(document_id, "failed", error=str(exc))
+                logger.warning(
+                    "OCR unavailable; ingestion stopped",
+                    extra=log_extra(document=str(document_id)),
+                )
+                return
             await documents.set_status(
-                document_id, "needs_ocr", extraction_method=extraction.method
+                document_id, "extracted", extraction_method=ocr_result.method
             )
-            logger.info(
-                "document needs OCR (deferred); stopping cleanly",
-                extra=log_extra(document=str(document_id)),
+            text = ocr_result.text
+        else:
+            await documents.set_status(
+                document_id, "extracted", extraction_method=extraction.method
             )
-            return
-        await documents.set_status(
-            document_id, "extracted", extraction_method=extraction.method
-        )
+            text = extraction.text
 
-        creds = await decompose(extraction.text)
+        creds = await decompose(text)
         await documents.set_status(document_id, "decomposed")
 
         # Tag each credential with its source document for traceability.

@@ -8,10 +8,14 @@ import uuid
 from typing import Any
 
 from app.repositories.base import (
+    ApplicationOut,
     CredentialIn,
     CredentialOut,
     DocumentOut,
+    JobIn,
+    JobOut,
     MessageOut,
+    ProfileFactOut,
 )
 
 
@@ -92,6 +96,66 @@ class MemoryDocumentRepository:
                 "error": error,
             }
         )
+
+
+class MemoryJobRepository:
+    def __init__(self) -> None:
+        self._rows: dict[uuid.UUID, JobOut] = {}
+
+    async def add(self, job: JobIn) -> JobOut:
+        row = JobOut(id=uuid.uuid4(), **job.model_dump())
+        self._rows[row.id] = row
+        return row
+
+    async def list_for(self, candidate_id: uuid.UUID) -> list[JobOut]:
+        return list(self._rows.values())
+
+
+class MemoryApplicationRepository:
+    def __init__(self) -> None:
+        self._rows: dict[uuid.UUID, ApplicationOut] = {}
+        self.events: dict[uuid.UUID, list[tuple[str, dict[str, Any]]]] = {}
+
+    async def create(
+        self, candidate_id: uuid.UUID, job_id: uuid.UUID, status: str
+    ) -> ApplicationOut:
+        row = ApplicationOut(
+            id=uuid.uuid4(), candidate_id=candidate_id, job_id=job_id, status=status
+        )
+        self._rows[row.id] = row
+        self.events[row.id] = []
+        return row
+
+    async def get_by_id(self, application_id: uuid.UUID) -> ApplicationOut | None:
+        return self._rows.get(application_id)
+
+    async def set_status(self, application_id: uuid.UUID, status: str) -> None:
+        row = self._rows[application_id]
+        self._rows[application_id] = row.model_copy(update={"status": status})
+
+    async def add_event(
+        self, application_id: uuid.UUID, event_type: str, payload: dict[str, Any]
+    ) -> None:
+        self.events[application_id].append((event_type, payload))
+
+
+class MemoryProfileRepository:
+    def __init__(self) -> None:
+        self._rows: dict[tuple[uuid.UUID, str], ProfileFactOut] = {}
+
+    async def set(self, candidate_id: uuid.UUID, key: str, value: str) -> ProfileFactOut:
+        existing = self._rows.get((candidate_id, key))
+        row = ProfileFactOut(
+            id=existing.id if existing else uuid.uuid4(),
+            candidate_id=candidate_id,
+            key=key,
+            value=value,
+        )
+        self._rows[(candidate_id, key)] = row
+        return row
+
+    async def get_all(self, candidate_id: uuid.UUID) -> list[ProfileFactOut]:
+        return [row for (cid, _key), row in self._rows.items() if cid == candidate_id]
 
 
 class MemoryApprovalRepository:

@@ -8,13 +8,21 @@ still depend only on repository protocols (SPEC §11).
 import uuid
 from dataclasses import dataclass
 
-from app.repositories.base import CredentialRepository
+from app.repositories.base import (
+    ApplicationRepository,
+    CredentialRepository,
+    JobRepository,
+    ProfileRepository,
+)
 
 
 @dataclass
 class CapabilityContext:
     credentials: CredentialRepository
     candidate_id: uuid.UUID
+    jobs: JobRepository
+    applications: ApplicationRepository
+    profile: ProfileRepository
 
 
 _context: CapabilityContext | None = None

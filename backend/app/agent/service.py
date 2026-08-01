@@ -62,7 +62,9 @@ class AgentService:
         self._restarted: set[str] = set()
         self._settings.data_dir.mkdir(parents=True, exist_ok=True)
 
-    def _default_client_factory(self, settings: Settings, conversation_id: str) -> AgentClient:
+    def _build_options(self, conversation_id: str) -> ClaudeAgentOptions:
+        settings = self._settings
+
         async def can_use_tool(
             tool_name: str, input_data: dict[str, Any], context: Any
         ) -> Any:
@@ -72,10 +74,19 @@ class AgentService:
                 conversation_id, tool_name, input_data, write_intent(tool_name, input_data)
             )
 
-        options = ClaudeAgentOptions(
+        return ClaudeAgentOptions(
             model=settings.agent_model,
             system_prompt=AGENT_SYSTEM_PROMPT,
             mcp_servers={"jobseeker": capability_server()},
+            # SECURITY (found live 2026-07-30): the SDK's built-in tools
+            # (Bash, Read, Write, Edit, ...) are otherwise available by
+            # default alongside the MCP servers. can_use_tool's gate treats
+            # any tool with no registered write-intent as read-only-and-safe
+            # (approvals.py) — a rule written for the 4 read-only jobseeker
+            # stubs, not for a tool that can run arbitrary shell commands.
+            # tools=[] disables the built-in set entirely: only the
+            # jobseeker capabilities below are ever reachable.
+            tools=[],
             # Write capabilities are deliberately NOT pre-allowed: allowed_tools
             # bypasses can_use_tool, which would skip the approval gate.
             allowed_tools=allowed_tool_names(),
@@ -84,7 +95,9 @@ class AgentService:
             cwd=str(settings.data_dir),
             can_use_tool=can_use_tool,
         )
-        return ClaudeSDKClient(options)
+
+    def _default_client_factory(self, settings: Settings, conversation_id: str) -> AgentClient:
+        return ClaudeSDKClient(self._build_options(conversation_id))
 
     async def chat(self, conversation_id: str, text: str) -> AsyncIterator[AgentEvent]:
         session_id_var.set(conversation_id)

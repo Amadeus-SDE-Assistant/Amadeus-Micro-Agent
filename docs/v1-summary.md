@@ -1,5 +1,11 @@
 # v1 summary & roadmap
 
+> **Superseded (2026-07-30):** the "Honest gaps" and "Future improvements" sections
+> below are a snapshot at v1 close and are now partly stale — items 1, 2, 5, and 6
+> shipped in Phases 11–12. See [v2-summary.md](v2-summary.md) for current state, a
+> reconciliation table, and the live roadmap. The "What v1 is" section remains accurate
+> as history.
+
 Closed 2026-07-30 at checkpoint C10 (`58fd045`). ~13h10 actual against a ~14h pinned
 budget, built spec-first in one continuous arc: spec → plan → skeleton → persistence →
 ingestion → approvals → evals → review → UI → ship docs.

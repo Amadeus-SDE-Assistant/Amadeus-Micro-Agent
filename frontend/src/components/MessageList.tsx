@@ -15,6 +15,9 @@ const CAPABILITY_NAMES: Record<string, string> = {
   mcp__jobseeker__application_track: "Application tracking",
   mcp__jobseeker__job_search_match: "Job search & match",
   mcp__jobseeker__emotional_support: "Support",
+  mcp__jobseeker__profile_save: "Saving to your profile",
+  mcp__jobseeker__profile_recall: "Checking your profile",
+  mcp__jobseeker__job_capture: "Saving job posting",
   ToolSearch: "Preparing tools",
 };
 

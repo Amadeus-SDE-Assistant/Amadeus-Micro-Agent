@@ -4,16 +4,32 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.db import session_scope
-from app.models import Approval, Candidate, Conversation, Credential, Document, Message
+from app.models import (
+    Application,
+    ApplicationEvent,
+    Approval,
+    Candidate,
+    Conversation,
+    Credential,
+    Document,
+    Job,
+    Message,
+    ProfileFact,
+)
 from app.repositories.base import (
+    ApplicationOut,
     CredentialIn,
     CredentialOut,
     DocumentOut,
+    JobIn,
+    JobOut,
     MessageOut,
+    ProfileFactOut,
 )
 
 
@@ -146,6 +162,108 @@ class PgDocumentRepository:
             if extraction_method is not None:
                 row.extraction_method = extraction_method
             row.error = error
+
+
+class PgJobRepository:
+    def __init__(self, factory: async_sessionmaker[AsyncSession]) -> None:
+        self._factory = factory
+
+    async def add(self, job: JobIn) -> JobOut:
+        async with session_scope(self._factory) as session:
+            row = Job(**job.model_dump())
+            session.add(row)
+            await session.flush()
+            return JobOut(id=row.id, **job.model_dump())
+
+    async def list_for(self, candidate_id: uuid.UUID) -> list[JobOut]:
+        async with session_scope(self._factory) as session:
+            rows = await session.scalars(select(Job).order_by(Job.created_at))
+            return [
+                JobOut(
+                    id=r.id,
+                    title=r.title,
+                    company=r.company,
+                    source=r.source,
+                    jd_text=r.jd_text,
+                    raw=r.raw,
+                )
+                for r in rows
+            ]
+
+
+def _application_out(row: Application) -> ApplicationOut:
+    return ApplicationOut(
+        id=row.id, candidate_id=row.candidate_id, job_id=row.job_id, status=row.status
+    )
+
+
+class PgApplicationRepository:
+    def __init__(self, factory: async_sessionmaker[AsyncSession]) -> None:
+        self._factory = factory
+
+    async def create(
+        self, candidate_id: uuid.UUID, job_id: uuid.UUID, status: str
+    ) -> ApplicationOut:
+        async with session_scope(self._factory) as session:
+            row = Application(candidate_id=candidate_id, job_id=job_id, status=status)
+            session.add(row)
+            await session.flush()
+            return _application_out(row)
+
+    async def get_by_id(self, application_id: uuid.UUID) -> ApplicationOut | None:
+        async with session_scope(self._factory) as session:
+            row = await session.get(Application, application_id)
+            return _application_out(row) if row is not None else None
+
+    async def set_status(self, application_id: uuid.UUID, status: str) -> None:
+        async with session_scope(self._factory) as session:
+            row = await session.get(Application, application_id)
+            if row is None:
+                raise KeyError(f"application {application_id} not found")
+            row.status = status
+
+    async def add_event(
+        self, application_id: uuid.UUID, event_type: str, payload: dict[str, Any]
+    ) -> None:
+        async with session_scope(self._factory) as session:
+            session.add(
+                ApplicationEvent(
+                    application_id=application_id, event_type=event_type, payload=payload
+                )
+            )
+
+
+class PgProfileRepository:
+    def __init__(self, factory: async_sessionmaker[AsyncSession]) -> None:
+        self._factory = factory
+
+    async def set(self, candidate_id: uuid.UUID, key: str, value: str) -> ProfileFactOut:
+        async with session_scope(self._factory) as session:
+            stmt = (
+                pg_insert(ProfileFact)
+                .values(candidate_id=candidate_id, key=key, value=value)
+                .on_conflict_do_update(
+                    index_elements=[ProfileFact.candidate_id, ProfileFact.key],
+                    set_={"value": value, "updated_at": func.now()},
+                )
+                .returning(ProfileFact)
+            )
+            row = (await session.execute(stmt)).scalar_one()
+            return ProfileFactOut(
+                id=row.id, candidate_id=row.candidate_id, key=row.key, value=row.value
+            )
+
+    async def get_all(self, candidate_id: uuid.UUID) -> list[ProfileFactOut]:
+        async with session_scope(self._factory) as session:
+            rows = await session.scalars(
+                select(ProfileFact)
+                .where(ProfileFact.candidate_id == candidate_id)
+                .order_by(ProfileFact.key)
+            )
+            return [
+                ProfileFactOut(id=r.id, candidate_id=r.candidate_id, key=r.key, value=r.value)
+                for r in rows
+            ]
 
 
 class PgApprovalRepository:
