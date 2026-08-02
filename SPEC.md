@@ -777,3 +777,213 @@ running fine all session, which should have been the tell.) Run against the
 full Phase 12 diff: **Success, no issues found in 42 source files.** So
 Phase 12 *is* typechecked, and the standing gate in CLAUDE.md holds. Use
 `python -m mypy app` as the invocation from here on.
+
+---
+
+## 16. Phase 13 amendment — profile-aware matching
+
+Opened 2026-08-01, after Phase 12 close (`316b259`) and the v2 handoff docs (`1d4d9e2`).
+Closes the single deferral §15 named most explicitly: *"no wiring `job_search_match` to
+actually read the profile layer yet (exists + round-trips; consulted by matching is the
+next increment)."* Roadmap item 1 in `docs/v2-summary.md`, called there the highest
+value-per-hour item open. Same rules as §2/§14/§15 carry over unchanged: pinned budget,
+binding order, >25% overrun defers the next item, no box extension.
+
+The six core spec areas (objective, commands, project structure, code style, testing
+strategy, boundaries) are inherited unchanged from §1–§13 — this phase adds no new
+command, directory, dependency, or boundary. That is itself the point: v2 built both
+halves; this phase is only the wire between them.
+
+**Budget: ~1h30**, new pinned number on top of v1's ~13h10 + Phase 11's ~3h + Phase 12's
+8h box.
+
+**Why this is small.** The seam already exists. `CapabilityContext`
+(`capabilities/context.py`) has carried `profile: ProfileRepository` since T12.2, wired
+in `main.py`; `job_search_match` simply never reads it, consulting only `ctx.credentials`
+and `ctx.jobs`. No new schema, no new repository, no new capability, no new approval
+surface. Per the promotion invariant (§11) this is **one function body plus two prompts**
+— routing, registry, data layer, and frontend are all untouched.
+
+**Why it matters despite being small.** Today the system stores "remote only, fintech,
+165k minimum" (proven live at C12) and then assesses job fit as if it had never been
+told. An assistant that records preferences and ignores them when advising is worse than
+one that never asked — it spends the user's trust and returns nothing for it. This is the
+first increment where "individualized" describes behavior rather than storage.
+
+### Design decisions
+
+**D1 — Both branches consume the profile, not just the `job_id` branch.** The
+general-guidance branch ("what should I look for?") is arguably where stated preferences
+matter *most*: it is pure recommendation with no posting to anchor it. Wiring only the
+assessment branch would leave the more preference-sensitive path unimproved.
+
+**D2 — The tool description does NOT change, and must not mention preferences.** This is
+a direct application of the T12.7 regression (§15 CHECKPOINT C12): `profile_recall`'s
+description said "…or when a saved preference would help answer their question," which
+was permissive enough to hijack routing from `strategy_convo` and `application_track`.
+Advertising preference-awareness in `job_search_match`'s description invites the mirror
+failure — the router picking it for explicit "what do you know about me?" recall, which
+is `profile_recall`'s job. **The profile read is an invisible implementation detail.**
+Routing surface stays byte-identical; the golden set in T13.2 exists to prove that.
+
+**D3 — Conflict surfacing is the user-visible payoff.** A fit assessment that says "this
+role is onsite in NYC, which contradicts the remote-only constraint you saved" is the
+observable difference between this phase and the last. Grounding rules stay as strict as
+T12.6's: preferences are the candidate's *stated constraints*, never license to invent
+requirements the posting doesn't contain.
+
+**D4 — Empty profile degrades to exactly today's behavior.** No facts on file → the
+prompt carries no preferences section at all, and output is indistinguishable from the
+current implementation. A fit assessment must never emit "you have no preferences saved"
+— that is `profile_recall`'s register, not this capability's.
+
+**D5 — Read-only, permanently.** `job_search_match` will not *write* inferred preferences
+back to the profile (e.g. quietly saving "wants senior roles" because the user asked
+about one). Inference-as-write is a real product temptation and it would put an
+un-approved write behind a read-shaped tool — precisely the shape of the T11.0 security
+bug. Profile writes stay exclusively in `profile_save`, behind its gate.
+
+**Deliberate scope cuts (decided now, not oversights):**
+- **No `strategy_convo` / `emotional_support` profile-awareness** (roadmap item 10).
+  Same one-line pattern, three more capabilities, and a materially larger routing-eval
+  surface. It is the obvious next increment and it is not this one.
+- **No pgvector** — deferral item 4 stays open, unchanged since §2.
+- **No `job_capture` ↔ `application_track` linking** (v2 gap 1). Separate problem,
+  separate phase, and it involves a dedup policy decision this phase must not smuggle in.
+- **No profile-fact schema change** — `key`/`value` strings are consumed as-is. No typed
+  preference vocabulary (`comp_floor` as a number, etc.); that is a domain-modeling task
+  worth doing deliberately if and when a second consumer exists.
+
+| # | Task | Box | Cumulative |
+|---|------|-----|-----------|
+| 13.1 | Profile-aware `job_search_match` — both branches + prompt updates | 50m | 0:50 |
+| 13.2 | Tests + routing-eval golden set + quality gates | 40m | 1:30 |
+
+### T13.1 — Profile-aware `job_search_match` (50m)
+
+Rewrite the capability body only (`capabilities/stubs/job_search_match.py`). Read
+`await ctx.profile.get_all(ctx.candidate_id)` once, format the facts into a short
+labelled block via a `_profile_line`-style helper mirroring the existing
+`_credential_line`, and thread it into both prompt builders. Update
+`JOB_MATCH_ASSESSMENT_PROMPT` and `JOB_SEARCH_MATCH_PROMPT` (`agent/prompts.py`) to
+consume a preferences block: weigh stated constraints, name conflicts explicitly, and
+still ground every claim in supplied text. Tool description, signature, registry entry,
+and `_WRITE_INTENTS` all unchanged (D2, D5).
+- **AC:** with facts on file, a fit assessment against a posting that violates a stored
+  constraint names that conflict explicitly; the general-guidance branch reflects stored
+  preferences without a `job_id`; with an empty profile, both branches produce output
+  indistinguishable from the pre-phase implementation.
+
+### T13.2 — Tests + quality gates (40m)
+
+Extend `tests/unit/test_job_search_match.py` (already exists, T12.7): profile facts reach
+the prompt in both branches, empty-profile path stays clean, and the fact-formatting
+helper handles the boring edges (empty value, many facts). Re-run the routing golden set
+(`tests/evals/test_routing.py`, 19 cases, ≥80% gate) — **no new cases needed**, because
+D2 means routing surface is unchanged; the run is a *regression check* that
+`job_search_match` has not started stealing `profile_recall`'s explicit-recall cases.
+`ruff check`, `ruff format --check` on touched files, `uv run python -m mypy app` (the
+§15-corrected invocation), `pytest`, and frontend `tsc` all clean.
+- **AC:** all quality gates green; golden set still clears ≥80% with no
+  `profile_recall` → `job_search_match` misroutes.
+
+### T13.0 — UNPLANNED P0: filesystem settings voided the approval gate
+
+Found live 2026-08-01 while running the C13 demo, exactly as T11.0 was found — mid-
+verification of an unrelated task. Not budgeted; recorded here rather than absorbed
+silently.
+
+**Symptom.** The C13 demo's `job_capture` write persisted a `Job` row with **no approval
+prompt, no `approval_request` event, and no audit row at all**. The row's id matched the
+one the agent reported back, so the write was real.
+
+**Investigation.** The gate itself was innocent: `job_capture` is in `_WRITE_INTENTS`,
+so it is correctly excluded from `allowed_tools`; `main.py` wires a real `ApprovalGate`;
+and `ApprovalGate.check()` writes its audit row *before* awaiting a decision, so even a
+denial or timeout leaves a row. No row at all meant `can_use_tool` was never invoked.
+The server log confirmed it — `tool invoked` for `job_capture`, but no matching
+`approval resolved` line.
+
+**Root cause.** `ClaudeAgentOptions.setting_sources` was never set, and the SDK
+documents its `None` default as *"all sources are loaded (matches CLI defaults)"* —
+including `~/.claude/settings.json`. That file on the dev machine carries
+`"permissions": {"defaultMode": "auto"}`, which auto-approves tool calls **before**
+`can_use_tool` is consulted. The SDK's own `CanUseToolShadowedWarning` says as much:
+*"Allow rules from settings files can also shadow the callback but are not visible
+here."*
+
+So the developer's personal, out-of-repo Claude Code config silently disabled the
+product's entire security model. Same class as T11.0 — a permissive default reaching
+past the gate — but a worse one, because nothing in the repo hinted at the dependency
+and a repo-only audit could never have found it.
+
+**Fix.** `setting_sources=[]` (the SDK's documented isolation mode) in
+`AgentService._build_options`. Verified RED → GREEN against the live system: the same
+capture that previously wrote silently now raises a descriptive approval prompt; denying
+it left a `denied` audit row and **zero** job rows. Regression test
+`test_default_client_ignores_filesystem_settings` asserts the option directly, mirroring
+T11.0's `test_default_client_has_no_builtin_tools`.
+
+**Standing lesson (third instance of the same shape).** The security model is only as
+strong as the agent's *configuration surface*, and that surface extends beyond the
+repository. `tools`, `allowed_tools`, and `setting_sources` each had a permissive default
+that reached past `can_use_tool`. Any future SDK option that can allow a tool must be
+pinned explicitly and asserted in a test — an unset option is a decision, not a default.
+
+### CHECKPOINT C13 — Phase 13 CLOSED 2026-08-01
+
+Demoed live against the real running system (backend + Postgres + agent subprocess),
+per the standing ritual (§2) and the T12.6 lesson that a live smoke test catches
+grounding bugs unit tests pass straight through. It did again — see T13.0.
+
+**Exit criterion — profile-aware fit assessment (D3).** In a **fresh conversation**,
+against a captured posting that conflicts with all three preferences stored back at C12
+(2026-07-30, so genuinely durable — not re-saved for the demo), `job_search_match`
+returned a "Weak fit" verdict that named every conflict explicitly: onsite-5-days-NYC
+against the stored fully-remote-only constraint ("hard conflict"), $120–135K against the
+stored $165K floor ("a $30K gap even at the top of their range"), and healthcare
+analytics against the stored fintech/dev-tools targeting. Conflicts landed in the gaps
+section and tempered the verdict rather than being buried, which is exactly what D3
+asked for. The same answer still cited real stored credentials by name, so the T12.6
+grounding did not regress. No approval prompt on the read — the read-only path holds.
+
+**General-guidance branch (D1) — proven incidentally.** An earlier demo turn asked for
+fit by *name* rather than id. The agent could not resolve a name to a `job_id`, so it
+fell through to the general branch — which surfaced all three stored preferences and
+flagged the industry mismatch unprompted. An accidental but clean proof that D1's
+"both branches" decision does real work.
+
+**Empty profile (D4)** is proven by unit test rather than live demo: the candidate has
+had facts on file since C12, and deleting real rows to stage a demo was not worth it.
+`test_empty_profile_leaves_the_assessment_prompt_unchanged` asserts no preferences
+section appears, and the two pre-existing T12.6 prompt assertions still pass unmodified
+— which is the stronger form of the same claim.
+
+**Routing (D2) — held, and verified three ways.** The golden set scored **95% (18/19)**,
+up from 89% at C12 and above the ≥80% gate. It was run **twice** — once after T13.1 and
+again after the T13.0 security fix, since `setting_sources=[]` changes what the agent
+subprocess loads and a gate measured against unshipped code proves nothing. Both runs:
+95%. `"What do you know about my job preferences so far?"` routed to `profile_recall`
+in both, un-hijacked, and all three `job_search_match` cases passed in both.
+Structurally, `git diff` confirms **zero** `@tool` description bytes changed — the
+profile read is invisible to the router by construction, so D2 holds for a reason, not
+by luck.
+
+The single failure was `"Which of my applications should I follow up on this week?"` —
+and it landed differently in the two runs (`profile_recall`, then `none`), which is
+itself the evidence that it is the pre-existing ambiguity already recorded at C12 rather
+than a systematic hijack. A real routing regression does not move around between runs.
+
+**Quality gates at close:** 84 backend tests (77 unit + 7 integration, up from 79),
+ruff check + format clean on every touched file, `uv run python -m mypy app` clean
+across 42 files, frontend `tsc` clean (no frontend changes).
+
+**Known gap left open deliberately.** `job_search_match` can only resolve a job by
+UUID, not by name — "how do I match that MediCore job?" cannot find it without the id.
+Real usability friction, surfaced by this demo, but fixing it is a capability-interface
+change, not this phase's one-line wire. Recorded for the next increment.
+
+**Time:** T13.1 + T13.2 landed inside the 1h30 box; T13.0 was unbudgeted P0 work on top.
+The box is reported as met with the P0 called out separately rather than folded in, so
+the number stays honest (v2 gap 8 — Phase 12's missing time accounting — does not
+repeat).

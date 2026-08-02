@@ -19,16 +19,25 @@ def assistant_text(text: str) -> AssistantMessage:
 
 def result_ok() -> ResultMessage:
     return ResultMessage(
-        subtype="success", duration_ms=10, duration_api_ms=8,
-        is_error=False, num_turns=1, session_id="s1", total_cost_usd=0.001,
+        subtype="success",
+        duration_ms=10,
+        duration_api_ms=8,
+        is_error=False,
+        num_turns=1,
+        session_id="s1",
+        total_cost_usd=0.001,
     )
 
 
 class FakeClient:
     """Scriptable stand-in for ClaudeSDKClient."""
 
-    def __init__(self, script: list[Any] | None = None, fail: Exception | None = None,
-                 hang_seconds: float = 0.0) -> None:
+    def __init__(
+        self,
+        script: list[Any] | None = None,
+        fail: Exception | None = None,
+        hang_seconds: float = 0.0,
+    ) -> None:
         self.script = script or []
         self.fail = fail
         self.hang_seconds = hang_seconds
@@ -66,8 +75,10 @@ async def test_happy_path_streams_text_and_done(tmp_path: Any) -> None:
 
 
 async def test_failure_yields_error_event_and_recovers_with_fresh_client(tmp_path: Any) -> None:
-    clients = [FakeClient(fail=RuntimeError("boom")),
-               FakeClient(script=[assistant_text("recovered"), result_ok()])]
+    clients = [
+        FakeClient(fail=RuntimeError("boom")),
+        FakeClient(script=[assistant_text("recovered"), result_ok()]),
+    ]
     service = AgentService(
         make_settings(str(tmp_path)), client_factory=lambda s, cid: clients.pop(0)
     )
@@ -106,3 +117,18 @@ def test_default_client_has_no_builtin_tools(tmp_path: Any) -> None:
     service = AgentService(make_settings(str(tmp_path)))
     options = service._build_options("c1")
     assert options.tools == []
+
+
+def test_default_client_ignores_filesystem_settings(tmp_path: Any) -> None:
+    # Security regression, found live 2026-08-01 (SPEC §16 CHECKPOINT C13).
+    # setting_sources=None is documented by the SDK as "all sources are loaded
+    # (matches CLI defaults)" — so the machine's own ~/.claude/settings.json was
+    # being read into this app's agent. A "defaultMode": "auto" there
+    # auto-approves tool calls BEFORE can_use_tool is consulted, which silently
+    # voids the ApprovalGate: a job_capture write persisted with no approval
+    # prompt and no audit row at all. This app's security model must not depend
+    # on the contents of a config file outside the repo. [] is the SDK's
+    # documented isolation mode.
+    service = AgentService(make_settings(str(tmp_path)))
+    options = service._build_options("c1")
+    assert options.setting_sources == []

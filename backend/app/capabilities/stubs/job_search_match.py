@@ -6,7 +6,7 @@ from claude_agent_sdk import tool
 from app.agent.llm import raw_llm
 from app.agent.prompts import JOB_MATCH_ASSESSMENT_PROMPT, JOB_SEARCH_MATCH_PROMPT
 from app.capabilities.context import get_capability_context
-from app.repositories.base import CredentialOut, JobOut
+from app.repositories.base import CredentialOut, JobOut, ProfileFactOut
 
 
 def _credential_line(c: CredentialOut) -> str:
@@ -21,16 +21,39 @@ def _credential_line(c: CredentialOut) -> str:
     return header
 
 
-def _match_prompt_user(job: JobOut, credentials: list[CredentialOut], query: str) -> str:
+def _profile_block(facts: list[ProfileFactOut]) -> str:
+    """Stored preferences as a labelled block, or "" when nothing usable is on file.
+
+    Empty means the block is dropped from the prompt entirely (SPEC §16 D4), so an
+    empty profile reads exactly like the pre-Phase-13 implementation.
+    """
+    lines = [f"- {f.key}: {f.value.strip()}" for f in facts if f.value and f.value.strip()]
+    if not lines:
+        return ""
+    return "Candidate's stated preferences and constraints:\n" + "\n".join(lines)
+
+
+def _match_prompt_user(
+    job: JobOut, credentials: list[CredentialOut], facts: list[ProfileFactOut], query: str
+) -> str:
     creds_text = "\n".join(_credential_line(c) for c in credentials) or "(no credentials on file)"
     parts = [
         f"Job: {job.title} at {job.company}",
         f"Job description:\n{job.jd_text}" if job.jd_text else "",
         f"Extracted details: {job.raw}" if job.raw else "",
         f"Candidate's stored background:\n{creds_text}",
+        _profile_block(facts),
     ]
     if query:
         parts.append(f"Candidate's question: {query}")
+    return "\n\n".join(p for p in parts if p)
+
+
+def _guidance_prompt_user(facts: list[ProfileFactOut], query: str) -> str:
+    parts = [
+        query or "What kinds of jobs should I look for?",
+        _profile_block(facts),
+    ]
     return "\n\n".join(p for p in parts if p)
 
 
@@ -48,6 +71,9 @@ async def job_search_match(args: dict[str, Any]) -> dict[str, Any]:
     # Promoted (SPEC §15 T12.6): direct LLM comparison of stored Job/Credential
     # text when job_id is given — no pgvector (deferral item 4 stays open).
     # Without job_id, falls back to the original general-guidance behavior.
+    # Both branches also consult the profile layer (SPEC §16 T13.1). The read is
+    # deliberately invisible in the tool description above — advertising it would
+    # invite the T12.7 routing regression in mirror image (SPEC §16 D2).
     ctx = get_capability_context()
     query = str(args.get("query", "")).strip()
     job_id = str(args.get("job_id", "")).strip()
@@ -62,15 +88,15 @@ async def job_search_match(args: dict[str, Any]) -> dict[str, Any]:
             jobs = await ctx.jobs.list_for(ctx.candidate_id)
             job = next((j for j in jobs if j.id == target), None)
 
+    facts = await ctx.profile.get_all(ctx.candidate_id)
+
     if job is not None:
         credentials = await ctx.credentials.list_for(ctx.candidate_id)
         text = await raw_llm(
             system=JOB_MATCH_ASSESSMENT_PROMPT,
-            user=_match_prompt_user(job, credentials, query),
+            user=_match_prompt_user(job, credentials, facts, query),
         )
         return {"content": [{"type": "text", "text": text}]}
 
-    text = await raw_llm(
-        system=JOB_SEARCH_MATCH_PROMPT, user=query or "What kinds of jobs should I look for?"
-    )
+    text = await raw_llm(system=JOB_SEARCH_MATCH_PROMPT, user=_guidance_prompt_user(facts, query))
     return {"content": [{"type": "text", "text": text}]}

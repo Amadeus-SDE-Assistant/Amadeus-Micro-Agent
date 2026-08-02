@@ -59,9 +59,12 @@ Worth preserving — each of these argues for keeping a specific ritual:
    Correct under the single-candidate assumption, silently wrong the moment a second
    candidate exists. The signature accepts the argument so the fix is contained, but
    it is not implemented.
-3. **`job_search_match` does not read the profile layer.** Deliberate v2 scope cut —
-   both halves exist, nothing connects them. An "individualized service" that stores
-   preferences and ignores them when matching is the obvious next increment.
+3. ~~**`job_search_match` does not read the profile layer.**~~ **CLOSED 2026-08-01 by
+   Phase 13** (SPEC §16). Both branches now consult `profile_fact`; fit assessments name
+   conflicts against stored constraints. Note Phase 13 also found an unplanned P0 while
+   demoing it — `setting_sources` defaulted to loading the developer's own
+   `~/.claude/settings.json`, whose `defaultMode: auto` was auto-approving writes past
+   the approval gate. See SPEC §16 T13.0.
 
 **Carried from v1, still open**
 

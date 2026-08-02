@@ -127,3 +127,66 @@ call, because what came out wasn't on it.
 **Close: C12 demoed live (capture→match, and a profile round-trip proven across a
 *fresh* conversation — the point being durable storage, not chat memory). 79 tests,
 8 capabilities, merged to `dev-v3` via PR #4.**
+
+---
+
+## Phase 13 — profile-aware matching (2026-08-01)
+
+One wire, one hour-and-a-half box: `job_search_match` had never read the
+`profile_fact` layer that Phase 12 built. The system could store "remote only,
+fintech, 165k minimum" and then assess job fit as if it had never been told. An
+assistant that records your preferences and ignores them is worse than one that
+never asked — it spends trust and returns nothing.
+
+- **The seam was already there.** `CapabilityContext` has carried
+  `profile: ProfileRepository` since T12.2; the capability just never called it.
+  No schema, no repository, no new capability, no new approval surface — one
+  function body and two prompts, exactly as the promotion invariant promises.
+- **The tool description deliberately did not change.** T12.7's regression was a
+  too-permissive description hijacking routing; advertising "considers your saved
+  preferences" invites the mirror failure, where `job_search_match` steals
+  `profile_recall`'s explicit-recall job. The profile read is an invisible
+  implementation detail, and `git diff` proving zero `@tool` bytes changed is a
+  stronger guarantee than the eval passing. **Routing surface is a public API;
+  the eval is how you find out you changed it, not how you avoid changing it.**
+- **Both branches got it, not just the `job_id` one.** The general-guidance branch
+  ("what should I look for?") is where stated preferences matter *most* — there's
+  no posting to anchor the answer. That decision paid off by accident: a demo turn
+  that asked for fit by name instead of id fell through to the general branch, and
+  it surfaced all three preferences and flagged the industry mismatch unprompted.
+- **The eval improved to 95% (18/19)** from 89%, and re-ran a second time after a
+  late security fix, because the gate has to be measured against the code that
+  actually ships.
+
+### The unplanned P0: the security model lived outside the repo
+
+The C13 demo's `job_capture` write persisted a real `Job` row with **no approval
+prompt and no audit row**. The gate was innocent — `job_capture` is properly in
+`_WRITE_INTENTS`, properly excluded from `allowed_tools`, and `check()` writes its
+audit row *before* awaiting a decision, so even a denial leaves a trace. No row at
+all could only mean `can_use_tool` was never called.
+
+Cause: `ClaudeAgentOptions.setting_sources` was never set, and the SDK documents
+its `None` default as "all sources are loaded." So the *developer's own*
+`~/.claude/settings.json` — carrying `"defaultMode": "auto"` — was being read into
+the product's agent, auto-approving tool calls before the callback was consulted.
+
+**A personal config file, outside the repository, silently disabled the entire
+security model.** T11.0 was the same shape (`tools` defaulted permissive) and so
+was the original ADR-0002 lesson (`allowed_tools` bypasses the callback). Three
+instances now, and the third is the worst: nothing in the repo hinted at the
+dependency, so no amount of reading this codebase would have found it. Only
+running it did.
+
+Fixed with `setting_sources=[]`, verified RED→GREEN live (the same capture now
+prompts; denying leaves a `denied` row and zero job rows), regression test added
+next to T11.0's.
+
+**Standing rule going forward: any SDK option capable of allowing a tool must be
+pinned explicitly and asserted in a test. An unset option is a decision, not a
+default.**
+
+**Close: C13 demoed live — a fresh conversation scored a posting "Weak fit" and
+named all three conflicts (onsite vs remote-only, $120–135K vs a $165K floor,
+healthcare vs fintech/dev tools) against preferences stored days earlier at C12,
+while still citing real credentials. 84 tests, 8 capabilities, routing eval 95%.**

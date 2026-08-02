@@ -133,6 +133,32 @@ Scoped via `interview-me` after Phase 11's pause; full interview record in
 
 ---
 
+## Phase 13 — profile-aware matching (~1h30, SPEC §16)
+Closes the deferral §15 named most explicitly; roadmap item 1 in `docs/v2-summary.md`.
+Read-only change — no new schema, capability, or approval surface.
+- [x] T13.0 (unplanned, P0): `setting_sources` defaulted to "load all filesystem
+      settings", so the dev machine's `~/.claude/settings.json` (`defaultMode:
+      auto`) auto-approved tool calls before `can_use_tool` — a `job_capture`
+      write persisted with no prompt and no audit row. Found live during the C13
+      demo, same way T11.0 was found. Fixed with `setting_sources=[]`; verified
+      RED→GREEN live (denial now leaves a `denied` row + zero job rows);
+      regression test added.
+- [x] T13.1 Profile-aware `job_search_match` — both branches + prompt updates (50m)
+      — `_profile_block` helper + `_guidance_prompt_user`; both capability prompts
+      now weigh stored constraints and must name conflicts. Tool description
+      deliberately unchanged (D2).
+- [x] T13.2 Tests + routing-eval regression check + quality gates (40m) — 84 tests
+      (77 unit + 7 integration, up from 79); routing eval 95% (18/19) vs 89% at C12;
+      ruff + mypy + tsc clean.
+- [x] CHECKPOINT C13: demoed live — a fresh conversation assessing a posting against
+      preferences stored back at C12 returned "Weak fit" naming all three conflicts
+      (onsite vs remote-only, $120-135K vs $165K floor, healthcare vs fintech/dev
+      tools), while still citing real stored credentials. D1 proven incidentally via
+      the general-guidance branch; D4 proven by unit test. **Phase 13 CLOSED
+      2026-08-01.** T13.1+T13.2 inside the 1h30 box; T13.0 unbudgeted on top.
+
+---
+
 ## Deferral list — FINAL STATE at v1 close
 1. OCR fallback — **deferred** (needs_ocr path stops cleanly; trigger = first real
    scanned resume; install = winget tesseract + pytesseract)

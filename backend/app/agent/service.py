@@ -65,9 +65,7 @@ class AgentService:
     def _build_options(self, conversation_id: str) -> ClaudeAgentOptions:
         settings = self._settings
 
-        async def can_use_tool(
-            tool_name: str, input_data: dict[str, Any], context: Any
-        ) -> Any:
+        async def can_use_tool(tool_name: str, input_data: dict[str, Any], context: Any) -> Any:
             if self._gate is None:
                 return PermissionResultAllow()
             return await self._gate.check(
@@ -87,6 +85,17 @@ class AgentService:
             # tools=[] disables the built-in set entirely: only the
             # jobseeker capabilities below are ever reachable.
             tools=[],
+            # SECURITY (found live 2026-08-01, same class as the tools=[] fix
+            # above): setting_sources defaults to None, which the SDK documents
+            # as "all sources are loaded (matches CLI defaults)" — so the
+            # DEVELOPER's own ~/.claude/settings.json was being read into this
+            # app's agent. That file's "defaultMode": "auto" auto-approves tool
+            # calls before can_use_tool is consulted, silently voiding the
+            # approval gate: a job_capture write persisted with no approval
+            # prompt and no audit row. An ambient config file outside the repo
+            # must never be able to disable this app's security model.
+            # [] is the SDK's documented isolation mode.
+            setting_sources=[],
             # Write capabilities are deliberately NOT pre-allowed: allowed_tools
             # bypasses can_use_tool, which would skip the approval gate.
             allowed_tools=allowed_tool_names(),
@@ -181,9 +190,7 @@ class AgentService:
                 if isinstance(block, TextBlock):
                     events.append(AgentEvent(type=AgentEventType.TEXT, text=block.text))
                 elif isinstance(block, ToolUseBlock):
-                    events.append(
-                        AgentEvent(type=AgentEventType.TOOL_USE, tool_name=block.name)
-                    )
+                    events.append(AgentEvent(type=AgentEventType.TOOL_USE, tool_name=block.name))
                     logger.info("tool invoked", extra=log_extra(tool=block.name))
         elif isinstance(message, ResultMessage):
             events.append(
